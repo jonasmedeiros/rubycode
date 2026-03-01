@@ -9,6 +9,7 @@ require_relative "rubycode/adapters/ollama"
 require_relative "rubycode/tools"
 require_relative "rubycode/client"
 
+# Rubycode is a Ruby-native AI coding agent with pluggable LLM adapters
 module Rubycode
   class Error < StandardError; end
 

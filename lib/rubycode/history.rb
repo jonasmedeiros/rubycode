@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module Rubycode
+  # Manages conversation history between user and assistant
   class History
     def initialize
       @messages = []

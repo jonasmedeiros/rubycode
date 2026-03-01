@@ -5,6 +5,7 @@ require "json"
 
 module Rubycode
   module Adapters
+    # Ollama adapter for local LLM integration
     class Ollama < Base
       def generate(messages:, system: nil, tools: nil)
         uri = URI("#{@config.url}/api/chat")

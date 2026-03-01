@@ -6,6 +6,7 @@ require_relative "tools/search"
 require_relative "tools/done"
 
 module Rubycode
+  # Collection of available tools for the AI agent
   module Tools
     # Registry of all available tools
     TOOLS = [

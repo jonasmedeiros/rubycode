@@ -5,6 +5,7 @@ require "shellwords"
 
 module Rubycode
   module Tools
+    # Tool for executing safe bash commands
     class Bash
       # Whitelist of safe commands
       SAFE_COMMANDS = %w[
@@ -26,7 +27,11 @@ module Rubycode
           type: "function",
           function: {
             name: "bash",
-            description: "Execute safe bash commands for exploring the filesystem and terminal operations.\n\nIMPORTANT: This tool is for terminal operations and directory exploration (ls, find, tree, etc.). DO NOT use it for file operations (reading, searching file contents) - use the specialized tools instead.\n\nWhitelisted commands: #{SAFE_COMMANDS.join(", ")}",
+            description: "Execute safe bash commands for exploring the filesystem and terminal operations.\n\n" \
+                         "IMPORTANT: This tool is for terminal operations and directory exploration " \
+                         "(ls, find, tree, etc.). DO NOT use it for file operations (reading, searching " \
+                         "file contents) - use the specialized tools instead.\n\n" \
+                         "Whitelisted commands: #{SAFE_COMMANDS.join(", ")}",
             parameters: {
               type: "object",
               properties: {

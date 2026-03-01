@@ -2,13 +2,15 @@
 
 module Rubycode
   module Tools
+    # Tool for signaling task completion
     class Done
       def self.definition
         {
           type: "function",
           function: {
             name: "done",
-            description: "Call this when you have found the code and are ready to provide your final answer. This signals you are finished exploring.",
+            description: "Call this when you have found the code and are ready to provide your " \
+                         "final answer. This signals you are finished exploring.",
             parameters: {
               type: "object",
               properties: {
@@ -23,7 +25,7 @@ module Rubycode
         }
       end
 
-      def self.execute(params:, context:)
+      def self.execute(params:, context: nil)
         # Just return the answer - this is the final response
         params["answer"]
       end

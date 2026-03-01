@@ -2,6 +2,7 @@
 
 module Rubycode
   module Adapters
+    # Base adapter class for LLM integrations
     class Base
       def initialize(config)
         @config = config

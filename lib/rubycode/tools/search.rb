@@ -5,13 +5,19 @@ require "shellwords"
 
 module Rubycode
   module Tools
+    # Tool for searching file contents with grep
     class Search
       def self.definition
         {
           type: "function",
           function: {
             name: "search",
-            description: "Search INSIDE file contents for patterns using grep. Returns matching lines with file paths and line numbers.\n\n- Searches file CONTENTS using regular expressions\n- Use this when you need to find WHERE specific text/code appears inside files\n- Returns file paths, line numbers, and the matching content\n- Example: search for 'button' to find files containing that text",
+            description: "Search INSIDE file contents for patterns using grep. " \
+                         "Returns matching lines with file paths and line numbers.\n\n" \
+                         "- Searches file CONTENTS using regular expressions\n" \
+                         "- Use this when you need to find WHERE specific text/code appears inside files\n" \
+                         "- Returns file paths, line numbers, and the matching content\n" \
+                         "- Example: search for 'button' to find files containing that text",
             parameters: {
               type: "object",
               properties: {

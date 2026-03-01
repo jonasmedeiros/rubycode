@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module Rubycode
+  # Main client that orchestrates the AI agent loop
   class Client
     attr_reader :history
 
@@ -43,7 +44,7 @@ module Rubycode
 
     private
 
-    def handle_max_iterations(iteration)
+    def handle_max_iterations(_iteration)
       error_msg = "⚠️  Reached maximum iterations (#{MAX_ITERATIONS}). The agent may be stuck in a loop."
       puts "\n#{error_msg}\n"
       @history.add_message(role: "assistant", content: error_msg)
@@ -84,7 +85,7 @@ module Rubycode
       )
     end
 
-    def handle_max_tool_calls(content, total_tool_calls)
+    def handle_max_tool_calls(content, _total_tool_calls)
       error_msg = "⚠️  Reached maximum tool calls (#{MAX_TOOL_CALLS}). Stopping to prevent excessive operations."
       puts "\n#{error_msg}\n"
       @history.add_message(role: "assistant", content: error_msg)
