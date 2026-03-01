@@ -8,13 +8,12 @@ module Rubycode
     def initialize
       @adapter = :ollama
       @url = "http://localhost:11434"
-      @model = "qwen3-coder:480b-cloud"
+      @model = "deepseek-v3.1:671b-cloud"
       @root_path = Dir.pwd
       @debug = false # Set to true to see JSON requests/responses
 
-      # WORKAROUND for weak tool-calling models (qwen3-coder, etc.)
+      # WORKAROUND for weak tool-calling models
       # When enabled, injects reminder messages if model generates text instead of calling tools
-      # OpenCode does NOT use this - they rely on strong tool-calling models (Claude, GPT-4)
       # Set to true ONLY for testing with weak models
       @enable_tool_injection_workaround = false
     end
