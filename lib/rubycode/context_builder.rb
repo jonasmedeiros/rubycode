@@ -12,7 +12,7 @@ module Rubycode
         Working directory: #{@root_path}
         Platform: #{RUBY_PLATFORM}
         Ruby version: #{RUBY_VERSION}
-        Today's date: #{Time.now.strftime('%Y-%m-%d')}
+        Today's date: #{Time.now.strftime("%Y-%m-%d")}
         </env>
       CONTEXT
     end

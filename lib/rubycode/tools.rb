@@ -22,9 +22,7 @@ module Rubycode
     def self.execute(tool_name:, params:, context:)
       tool_class = TOOLS.find { |t| t.definition[:function][:name] == tool_name }
 
-      unless tool_class
-        return "Error: Unknown tool '#{tool_name}'"
-      end
+      return "Error: Unknown tool '#{tool_name}'" unless tool_class
 
       tool_class.execute(params: params, context: context)
     end

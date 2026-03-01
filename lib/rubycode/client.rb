@@ -14,171 +14,185 @@ module Rubycode
     MAX_TOOL_CALLS = 50  # Maximum total tool calls
 
     def ask(prompt:)
-      # Add user message to history
       @history.add_message(role: "user", content: prompt)
-
-      # Build system prompt with environment context
       system_prompt = build_system_prompt
-
       iteration = 0
       total_tool_calls = 0
 
-      # Agent loop: keep calling LLM until no more tool calls
       loop do
         iteration += 1
 
-        # Check iteration limit
-        if iteration > MAX_ITERATIONS
-          error_msg = "⚠️  Reached maximum iterations (#{MAX_ITERATIONS}). The agent may be stuck in a loop."
-          puts "\n#{error_msg}\n"
-          @history.add_message(role: "assistant", content: error_msg)
-          return error_msg
-        end
+        return handle_max_iterations(iteration) if iteration > MAX_ITERATIONS
 
-        # Get messages in LLM format
-        messages = @history.to_llm_format
+        content, tool_calls = get_llm_response(system_prompt)
 
-        # Get response from LLM with tools
-        response_body = @adapter.generate(
-          messages: messages,
-          system: system_prompt,
-          tools: Tools.definitions
-        )
-
-        # Extract assistant message
-        assistant_message = response_body["message"]
-        content = assistant_message["content"] || ""
-        tool_calls = assistant_message["tool_calls"] || []
-
-        # Add assistant response to history
-        @history.add_message(role: "assistant", content: content)
-
-        # If no tool calls, we're done
         if tool_calls.empty?
-          # ============================================================================
-          # WORKAROUND FOR WEAK TOOL-CALLING MODELS (e.g., qwen3-coder)
-          # This is ONLY for testing with models that have poor tool-calling capabilities.
-          # OpenCode does NOT do this - they rely on good models (Claude, GPT-4).
-          # Enable with: config.enable_tool_injection_workaround = true
-          # ============================================================================
-          if @config.enable_tool_injection_workaround && iteration < 10
-            puts "   ⚠️  No tool calls - injecting reminder (iteration #{iteration})" unless @config.debug
+          result = handle_empty_tool_calls(content, iteration, total_tool_calls)
+          return result if result
 
-            @history.add_message(
-              role: "user",
-              content: "You MUST call a tool. Do not respond with text. Call search, read, bash, or done tool now."
-            )
-            next  # Continue the loop
-          end
-          # ============================================================================
-          # END WORKAROUND
-          # ============================================================================
-
-          puts "\n✅ Agent finished (#{iteration} iterations, #{total_tool_calls} tool calls)\n" unless @config.debug
-          return content
+          next # Continue loop for workaround case
         end
 
-        # Check tool call limit
         total_tool_calls += tool_calls.length
-        if total_tool_calls > MAX_TOOL_CALLS
-          error_msg = "⚠️  Reached maximum tool calls (#{MAX_TOOL_CALLS}). Stopping to prevent excessive operations."
-          puts "\n#{error_msg}\n"
-          @history.add_message(role: "assistant", content: error_msg)
-          return content.empty? ? error_msg : content
-        end
+        return handle_max_tool_calls(content, total_tool_calls) if total_tool_calls > MAX_TOOL_CALLS
 
-        # Execute each tool call
-        unless @config.debug
-          puts "\n🤖 Iteration #{iteration}: Calling #{tool_calls.length} tool(s)..."
-        end
-
-        done_result = nil
-        tool_calls.each do |tool_call|
-          result = execute_tool(tool_call)
-
-          # Check if this was the "done" tool
-          if tool_call.dig("function", "name") == "done"
-            done_result = result
-            break
-          end
-        end
-
-        # If done was called, return the result
-        if done_result
-          puts "\n✅ Agent finished (#{iteration} iterations, #{total_tool_calls + 1} tool calls)\n" unless @config.debug
-          return done_result
-        end
-
-        # Loop continues - send tool results back to LLM
+        done_result = execute_tool_calls(tool_calls, iteration)
+        return finalize_response(done_result, iteration, total_tool_calls) if done_result
       end
     end
 
     private
+
+    def handle_max_iterations(iteration)
+      error_msg = "⚠️  Reached maximum iterations (#{MAX_ITERATIONS}). The agent may be stuck in a loop."
+      puts "\n#{error_msg}\n"
+      @history.add_message(role: "assistant", content: error_msg)
+      error_msg
+    end
+
+    def get_llm_response(system_prompt)
+      messages = @history.to_llm_format
+      response_body = @adapter.generate(
+        messages: messages,
+        system: system_prompt,
+        tools: Tools.definitions
+      )
+
+      assistant_message = response_body["message"]
+      content = assistant_message["content"] || ""
+      tool_calls = assistant_message["tool_calls"] || []
+
+      @history.add_message(role: "assistant", content: content)
+      [content, tool_calls]
+    end
+
+    def handle_empty_tool_calls(content, iteration, total_tool_calls)
+      if @config.enable_tool_injection_workaround && iteration < 10
+        inject_tool_reminder(iteration)
+        return nil
+      end
+
+      puts "\n✅ Agent finished (#{iteration} iterations, #{total_tool_calls} tool calls)\n" unless @config.debug
+      content
+    end
+
+    def inject_tool_reminder(iteration)
+      puts "   ⚠️  No tool calls - injecting reminder (iteration #{iteration})" unless @config.debug
+      @history.add_message(
+        role: "user",
+        content: "You MUST call a tool. Do not respond with text. Call search, read, bash, or done tool now."
+      )
+    end
+
+    def handle_max_tool_calls(content, total_tool_calls)
+      error_msg = "⚠️  Reached maximum tool calls (#{MAX_TOOL_CALLS}). Stopping to prevent excessive operations."
+      puts "\n#{error_msg}\n"
+      @history.add_message(role: "assistant", content: error_msg)
+      content.empty? ? error_msg : content
+    end
+
+    def execute_tool_calls(tool_calls, iteration)
+      puts "\n🤖 Iteration #{iteration}: Calling #{tool_calls.length} tool(s)..." unless @config.debug
+
+      done_result = nil
+      tool_calls.each do |tool_call|
+        result = execute_tool(tool_call)
+
+        if tool_call.dig("function", "name") == "done"
+          done_result = result
+          break
+        end
+      end
+      done_result
+    end
+
+    def finalize_response(done_result, iteration, total_tool_calls)
+      puts "\n✅ Agent finished (#{iteration} iterations, #{total_tool_calls + 1} tool calls)\n" unless @config.debug
+      done_result
+    end
 
     def clear_history
       @history.clear
     end
 
-    private
-
     def execute_tool(tool_call)
       tool_name = tool_call.dig("function", "name")
       arguments = tool_call.dig("function", "arguments")
 
+      display_tool_info(tool_name, arguments)
+
+      params = parse_arguments(arguments)
+      return nil unless params
+
+      result = run_tool(tool_name, params)
+      return nil unless result
+
+      display_result(result) if @config.debug
+      add_tool_result_to_history(tool_name, result)
+      result
+    rescue StandardError => e
+      handle_tool_error(e)
+    end
+
+    def display_tool_info(tool_name, arguments)
       if @config.debug
         puts "\n🔧 Tool: #{tool_name}"
         puts "   Args: #{arguments.inspect}"
       else
-        # Show minimal output
-        case tool_name
-        when "bash"
-          cmd = arguments.is_a?(Hash) ? arguments["command"] : JSON.parse(arguments)["command"]
-          puts "   💻 #{cmd}"
-        when "read"
-          file = arguments.is_a?(Hash) ? arguments["file_path"] : JSON.parse(arguments)["file_path"]
-          puts "   📖 #{file}"
-        when "search"
-          pattern = arguments.is_a?(Hash) ? arguments["pattern"] : JSON.parse(arguments)["pattern"]
-          puts "   🔍 #{pattern}"
-        end
+        display_minimal_tool_info(tool_name, arguments)
       end
+    end
 
-      begin
-        # Arguments might be Hash or JSON string
-        params = arguments.is_a?(Hash) ? arguments : JSON.parse(arguments)
+    def display_minimal_tool_info(tool_name, arguments)
+      icon_and_key = {
+        "bash" => ["💻", "command"],
+        "read" => ["📖", "file_path"],
+        "search" => ["🔍", "pattern"]
+      }
 
-        # Execute the tool
-        context = { root_path: @config.root_path }
-        result = Tools.execute(
-          tool_name: tool_name,
-          params: params,
-          context: context
-        )
+      return unless icon_and_key.key?(tool_name)
 
-        if @config.debug
-          puts "   ✓ Result: #{result.lines.first&.strip || '(empty)'}#{result.lines.count > 1 ? "... (#{result.lines.count} lines)" : ""}"
-        end
+      icon, key = icon_and_key[tool_name]
+      value = arguments.is_a?(Hash) ? arguments[key] : JSON.parse(arguments)[key]
+      puts "   #{icon} #{value}"
+    rescue JSON::ParserError
+      nil
+    end
 
-        # Add tool result to history
-        @history.add_message(
-          role: "user",
-          content: "Tool '#{tool_name}' result:\n#{result}"
-        )
+    def parse_arguments(arguments)
+      arguments.is_a?(Hash) ? arguments : JSON.parse(arguments)
+    rescue JSON::ParserError => e
+      error_msg = "Error parsing tool arguments: #{e.message}"
+      puts "   ✗ #{error_msg}"
+      @history.add_message(role: "user", content: error_msg)
+      nil
+    end
 
-        # Return the result so caller can check if it was "done"
-        result
+    def run_tool(tool_name, params)
+      context = { root_path: @config.root_path }
+      Tools.execute(tool_name: tool_name, params: params, context: context)
+    rescue StandardError => e
+      error_msg = "Error executing tool: #{e.message}"
+      puts "   ✗ #{error_msg}"
+      @history.add_message(role: "user", content: error_msg)
+      nil
+    end
 
-      rescue JSON::ParserError => e
-        error_msg = "Error parsing tool arguments: #{e.message}"
-        puts "   ✗ #{error_msg}"
-        @history.add_message(role: "user", content: error_msg)
-        nil
-      rescue => e
-        error_msg = "Error executing tool: #{e.message}"
-        puts "   ✗ #{error_msg}"
-        @history.add_message(role: "user", content: error_msg)
-        nil
-      end
+    def display_result(result)
+      first_line = result.lines.first&.strip || "(empty)"
+      suffix = result.lines.count > 1 ? "... (#{result.lines.count} lines)" : ""
+      puts "   ✓ Result: #{first_line}#{suffix}"
+    end
+
+    def add_tool_result_to_history(tool_name, result)
+      @history.add_message(role: "user", content: "Tool '#{tool_name}' result:\n#{result}")
+    end
+
+    def handle_tool_error(error)
+      error_msg = "Error: #{error.message}"
+      puts "   ✗ #{error_msg}"
+      @history.add_message(role: "user", content: error_msg)
+      nil
     end
 
     def build_adapter

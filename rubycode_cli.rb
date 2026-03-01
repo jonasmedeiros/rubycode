@@ -4,7 +4,7 @@
 require_relative "lib/rubycode"
 require "readline"
 
-puts "\n" + "=" * 80
+puts "\n#{"=" * 80}"
 puts "🚀 RubyCode - AI Ruby/Rails Code Assistant"
 puts "=" * 80
 
@@ -26,7 +26,7 @@ puts "\n📁 Working directory: #{full_path}"
 # Ask if debug mode should be enabled
 print "Enable debug mode? (shows JSON requests/responses) [y/N]: "
 debug_input = gets.chomp.downcase
-debug_mode = debug_input == 'y' || debug_input == 'yes'
+debug_mode = %w[y yes].include?(debug_input)
 
 # Configure the client
 Rubycode.configure do |config|
@@ -41,12 +41,12 @@ Rubycode.configure do |config|
   config.enable_tool_injection_workaround = false
 end
 
-puts "🐛 Debug mode: #{debug_mode ? 'ON' : 'OFF'}" if debug_mode
+puts "🐛 Debug mode: #{debug_mode ? "ON" : "OFF"}" if debug_mode
 
 # Create a client
 client = Rubycode::Client.new
 
-puts "\n" + "=" * 80
+puts "\n#{"=" * 80}"
 puts "✨ Agent initialized! You can now ask questions or request code changes."
 puts "   Type 'exit' or 'quit' to exit, 'clear' to clear history"
 puts "=" * 80
@@ -61,16 +61,16 @@ loop do
 
   # Handle commands
   case prompt.strip.downcase
-  when 'exit', 'quit'
+  when "exit", "quit"
     puts "\n👋 Goodbye!"
     break
-  when 'clear'
+  when "clear"
     client.clear_history
     puts "\n🗑️  History cleared!"
     next
   end
 
-  puts "\n" + "-" * 80
+  puts "\n#{"-" * 80}"
 
   begin
     # Get response from agent
@@ -82,7 +82,7 @@ loop do
     puts "-" * 80
   rescue Interrupt
     puts "\n\n⚠️  Interrupted! Type 'exit' to quit or continue chatting."
-  rescue => e
+  rescue StandardError => e
     puts "\n❌ Error: #{e.message}"
     puts e.backtrace.first(3).join("\n")
   end

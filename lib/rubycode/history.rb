@@ -22,9 +22,7 @@ module Rubycode
       @messages = []
     end
 
-    def messages
-      @messages
-    end
+    attr_reader :messages
 
     def last_user_message
       @messages.reverse.find { |msg| msg[:role] == "user" }

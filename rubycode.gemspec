@@ -10,12 +10,14 @@ Gem::Specification.new do |spec|
 
   spec.summary       = "Ruby AI code assistant (under development)"
   spec.description   = "Ruby-native AI coding agent with pluggable LLM adapters."
-  spec.homepage      = "https://example.com"
+  spec.homepage      = "https://github.com/jonasmedeiros/rubycode"
   spec.license       = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
 
   spec.metadata = {
-    "homepage_uri" => "https://example.com"
+    "homepage_uri" => "https://github.com/jonasmedeiros/rubycode",
+    "source_code_uri" => "https://github.com/jonasmedeiros/rubycode",
+    "bug_tracker_uri" => "https://github.com/jonasmedeiros/rubycode/issues"
   }
 
   # Files included in the gem

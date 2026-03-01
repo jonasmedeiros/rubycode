@@ -2,7 +2,6 @@
 
 module Rubycode
   class Configuration
-
     attr_accessor :adapter, :url, :model, :root_path, :debug, :enable_tool_injection_workaround
 
     def initialize
@@ -10,7 +9,7 @@ module Rubycode
       @url = "http://localhost:11434"
       @model = "qwen3-coder:480b-cloud"
       @root_path = Dir.pwd
-      @debug = false  # Set to true to see JSON requests/responses
+      @debug = false # Set to true to see JSON requests/responses
 
       # WORKAROUND for weak tool-calling models (qwen3-coder, etc.)
       # When enabled, injects reminder messages if model generates text instead of calling tools

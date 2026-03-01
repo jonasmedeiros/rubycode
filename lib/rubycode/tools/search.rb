@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "English"
 require "shellwords"
 
 module Rubycode
@@ -40,49 +41,52 @@ module Rubycode
       def self.execute(params:, context:)
         pattern = params["pattern"]
         path = params["path"] || "."
-        include_pattern = params["include"]
-        case_insensitive = params["case_insensitive"] || false
 
-        # Resolve relative paths
-        full_path = if File.absolute_path?(path)
-                      path
-                    else
-                      File.join(context[:root_path], path)
-                    end
+        full_path = resolve_path(path, context[:root_path])
+        return "Error: Path '#{path}' does not exist" unless File.exist?(full_path)
 
-        unless File.exist?(full_path)
-          return "Error: Path '#{path}' does not exist"
-        end
+        command = build_grep_command(pattern, full_path, params)
+        output, exit_code = run_command(command)
 
-        # Build grep command safely using Shellwords to prevent injection
+        format_output(output, exit_code, pattern)
+      rescue StandardError => e
+        "Error: #{e.message}"
+      end
+
+      def self.resolve_path(path, root_path)
+        File.absolute_path?(path) ? path : File.join(root_path, path)
+      end
+
+      def self.build_grep_command(pattern, full_path, params)
         cmd_parts = ["grep", "-n", "-r"]
-        cmd_parts << "-i" if case_insensitive
-        cmd_parts << "--include=#{Shellwords.escape(include_pattern)}" if include_pattern
+        cmd_parts << "-i" if params["case_insensitive"]
+        cmd_parts << "--include=#{Shellwords.escape(params["include"])}" if params["include"]
         cmd_parts << Shellwords.escape(pattern)
         cmd_parts << Shellwords.escape(full_path)
+        cmd_parts.join(" ")
+      end
 
-        command = cmd_parts.join(" ")
-
+      def self.run_command(command)
         output = `#{command} 2>&1`
-        exit_code = $?.exitstatus
+        [output, $CHILD_STATUS.exitstatus]
+      end
 
-        if exit_code == 0
-          # Found matches
-          lines = output.split("\n")
-          if lines.length > 100
-            lines[0..99].join("\n") + "\n\n... (#{lines.length - 100} more matches truncated)"
-          else
-            output
-          end
-        elsif exit_code == 1
-          # No matches found
+      def self.format_output(output, exit_code, pattern)
+        case exit_code
+        when 0
+          truncate_output(output)
+        when 1
           "No matches found for pattern: #{pattern}"
         else
-          # Error occurred
           "Error running search: #{output}"
         end
-      rescue => e
-        "Error: #{e.message}"
+      end
+
+      def self.truncate_output(output)
+        lines = output.split("\n")
+        return output if lines.length <= 100
+
+        lines[0..99].join("\n") + "\n\n... (#{lines.length - 100} more matches truncated)"
       end
     end
   end

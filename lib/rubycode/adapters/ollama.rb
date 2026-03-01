@@ -8,50 +8,56 @@ module Rubycode
     class Ollama < Base
       def generate(messages:, system: nil, tools: nil)
         uri = URI("#{@config.url}/api/chat")
+        payload = build_payload(messages, system, tools)
+        request = build_request(uri, payload)
 
-        request = Net::HTTP::Post.new(uri)
-        request["Content-Type"] = "application/json"
+        debug_request(uri, payload) if @config.debug
 
-        payload = {
-          model: @config.model,
-          messages: messages,
-          stream: false
-        }
+        body = send_request(uri, request)
+
+        debug_response(body) if @config.debug
+
+        body
+      end
+
+      private
+
+      def build_payload(messages, system, tools)
+        payload = { model: @config.model, messages: messages, stream: false }
         payload[:system] = system if system
         payload[:tools] = tools if tools
+        payload
+      end
 
+      def build_request(uri, payload)
+        request = Net::HTTP::Post.new(uri)
+        request["Content-Type"] = "application/json"
         request.body = payload.to_json
+        request
+      end
 
-        # DEBUG: Show request if debug mode enabled
-        if @config.debug
-          puts "\n" + "=" * 80
-          puts "📤 REQUEST TO LLM"
-          puts "=" * 80
-          puts "URL: #{uri}"
-          puts "Model: #{@config.model}"
-          puts "\nPayload:"
-          puts JSON.pretty_generate(payload)
-          puts "=" * 80
-        end
+      def send_request(uri, request)
+        response = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(request) }
+        JSON.parse(response.body)
+      end
 
-        response = Net::HTTP.start(uri.hostname, uri.port) do |http|
-          http.request(request)
-        end
+      def debug_request(uri, payload)
+        puts "\n#{"=" * 80}"
+        puts "📤 REQUEST TO LLM"
+        puts "=" * 80
+        puts "URL: #{uri}"
+        puts "Model: #{@config.model}"
+        puts "\nPayload:"
+        puts JSON.pretty_generate(payload)
+        puts "=" * 80
+      end
 
-        body = JSON.parse(response.body)
-
-        # DEBUG: Show response if debug mode enabled
-        if @config.debug
-          puts "\n" + "=" * 80
-          puts "📥 RESPONSE FROM LLM"
-          puts "=" * 80
-          puts JSON.pretty_generate(body)
-          puts "=" * 80 + "\n"
-        end
-
-        # /api/chat always returns this structure:
-        # { "message": { "role": "assistant", "content": "...", "tool_calls": [...] } }
-        body
+      def debug_response(body)
+        puts "\n#{"=" * 80}"
+        puts "📥 RESPONSE FROM LLM"
+        puts "=" * 80
+        puts JSON.pretty_generate(body)
+        puts "#{"=" * 80}\n"
       end
     end
   end
