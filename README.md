@@ -1,38 +1,96 @@
-# Rubycode
+# RubyCode
 
-TODO: Delete this and the text below, and describe your gem
+A Ruby-native AI coding assistant with pluggable LLM adapters. RubyCode provides an agent-based system that can explore codebases, search files, execute commands, and assist with coding tasks.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/rubycode`. To experiment with that code, run `bin/console` for an interactive prompt.
+## Features
+
+- **AI Agent Loop**: Autonomous task execution with tool calling
+- **Pluggable LLM Adapters**: Currently supports Ollama, easily extendable to other LLMs
+- **Built-in Tools**:
+  - `bash`: Execute safe bash commands for filesystem exploration
+  - `search`: Search file contents using grep with regex support
+  - `read`: Read files and directories with line numbers
+  - `done`: Signal task completion with final answer
+- **Conversation History**: Maintains context across interactions
+- **Environment Context**: Automatically provides Ruby version, platform, and working directory info
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
+Install the gem by executing:
 
 ```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+gem install rubycode
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+Or add it to your application's Gemfile:
+
+```ruby
+gem "rubycode"
+```
+
+Then execute:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+bundle install
 ```
 
 ## Usage
 
-TODO: Write usage instructions here
+### Basic Usage
+
+```ruby
+require "rubycode"
+
+# Configure the LLM adapter
+Rubycode.configure do |config|
+  config.adapter = :ollama
+  config.url = "http://localhost:11434"
+  config.model = "qwen3-coder:480b-cloud"
+  config.root_path = Dir.pwd
+  config.debug = false
+end
+
+# Create a client and ask a question
+client = Rubycode::Client.new
+response = client.ask(prompt: "Find the User model in the codebase")
+puts response
+```
+
+### Configuration Options
+
+```ruby
+Rubycode.configure do |config|
+  config.adapter = :ollama                    # LLM adapter to use
+  config.url = "http://localhost:11434"       # Ollama server URL
+  config.model = "qwen3-coder:480b-cloud"     # Model name
+  config.root_path = Dir.pwd                  # Project root directory
+  config.debug = false                        # Enable debug output
+  config.enable_tool_injection_workaround = false  # For weak tool-calling models
+end
+```
+
+### Available Tools
+
+The agent has access to four built-in tools:
+
+1. **bash**: Execute safe bash commands (ls, pwd, find, tree, cat, head, tail, wc, file, which, echo)
+2. **search**: Search file contents using grep with regex and case-insensitive options
+3. **read**: Read files with line numbers or list directory contents
+4. **done**: Signal completion and provide the final answer
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+After checking out the repo, run `bundle install` to install dependencies.
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+To install this gem onto your local machine, run:
+
+```bash
+bundle exec rake install
+```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/rubycode.
+Bug reports and pull requests are welcome on GitHub at https://github.com/jonasmedeiros/rubycode.
 
 ## License
 

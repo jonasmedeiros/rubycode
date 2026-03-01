@@ -4,37 +4,39 @@ module Rubycode
   module Tools
     # Tool for reading files and directories
     class Read
-      def self.definition
-        {
-          type: "function",
-          function: {
-            name: "read",
-            description: "Read a file or directory from the filesystem.\n\n" \
-                         "- Use this when you know the file path and want to see its contents\n" \
-                         "- Returns file contents with line numbers (format: 'line_number: content')\n" \
-                         "- For directories, returns a listing of entries\n" \
-                         "- Use the search tool to find specific content in files\n" \
-                         "- Use bash with 'ls' or 'find' to discover what files exist",
-            parameters: {
-              type: "object",
-              properties: {
-                file_path: {
-                  type: "string",
-                  description: "Absolute or relative path to the file to read"
-                },
-                offset: {
-                  type: "integer",
-                  description: "Line number to start reading from (1-indexed). Optional."
-                },
-                limit: {
-                  type: "integer",
-                  description: "Maximum number of lines to read. Default 2000. Optional."
-                }
+      SCHEMA = {
+        type: "function",
+        function: {
+          name: "read",
+          description: "Read a file or directory from the filesystem.\n\n" \
+                       "- Use this when you know the file path and want to see its contents\n" \
+                       "- Returns file contents with line numbers (format: 'line_number: content')\n" \
+                       "- For directories, returns a listing of entries\n" \
+                       "- Use the search tool to find specific content in files\n" \
+                       "- Use bash with 'ls' or 'find' to discover what files exist",
+          parameters: {
+            type: "object",
+            properties: {
+              file_path: {
+                type: "string",
+                description: "Absolute or relative path to the file to read"
               },
-              required: ["file_path"]
-            }
+              offset: {
+                type: "integer",
+                description: "Line number to start reading from (1-indexed). Optional."
+              },
+              limit: {
+                type: "integer",
+                description: "Maximum number of lines to read. Default 2000. Optional."
+              }
+            },
+            required: ["file_path"]
           }
         }
+      }.freeze
+
+      def self.definition
+        SCHEMA
       end
 
       def self.execute(params:, context:)

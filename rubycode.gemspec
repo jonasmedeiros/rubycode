@@ -17,7 +17,8 @@ Gem::Specification.new do |spec|
   spec.metadata = {
     "homepage_uri" => "https://github.com/jonasmedeiros/rubycode",
     "source_code_uri" => "https://github.com/jonasmedeiros/rubycode",
-    "bug_tracker_uri" => "https://github.com/jonasmedeiros/rubycode/issues"
+    "bug_tracker_uri" => "https://github.com/jonasmedeiros/rubycode/issues",
+    "rubygems_mfa_required" => "true"
   }
 
   # Files included in the gem

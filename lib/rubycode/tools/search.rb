@@ -7,41 +7,43 @@ module Rubycode
   module Tools
     # Tool for searching file contents with grep
     class Search
-      def self.definition
-        {
-          type: "function",
-          function: {
-            name: "search",
-            description: "Search INSIDE file contents for patterns using grep. " \
-                         "Returns matching lines with file paths and line numbers.\n\n" \
-                         "- Searches file CONTENTS using regular expressions\n" \
-                         "- Use this when you need to find WHERE specific text/code appears inside files\n" \
-                         "- Returns file paths, line numbers, and the matching content\n" \
-                         "- Example: search for 'button' to find files containing that text",
-            parameters: {
-              type: "object",
-              properties: {
-                pattern: {
-                  type: "string",
-                  description: "The pattern to search for (supports regex)"
-                },
-                path: {
-                  type: "string",
-                  description: "Directory or file to search in. Defaults to '.' (current directory). Optional."
-                },
-                include: {
-                  type: "string",
-                  description: "File pattern to include (e.g., '*.rb', '*.js'). Optional."
-                },
-                case_insensitive: {
-                  type: "boolean",
-                  description: "Perform case-insensitive search. Optional."
-                }
+      SCHEMA = {
+        type: "function",
+        function: {
+          name: "search",
+          description: "Search INSIDE file contents for patterns using grep. " \
+                       "Returns matching lines with file paths and line numbers.\n\n" \
+                       "- Searches file CONTENTS using regular expressions\n" \
+                       "- Use this when you need to find WHERE specific text/code appears inside files\n" \
+                       "- Returns file paths, line numbers, and the matching content\n" \
+                       "- Example: search for 'button' to find files containing that text",
+          parameters: {
+            type: "object",
+            properties: {
+              pattern: {
+                type: "string",
+                description: "The pattern to search for (supports regex)"
               },
-              required: ["pattern"]
-            }
+              path: {
+                type: "string",
+                description: "Directory or file to search in. Defaults to '.' (current directory). Optional."
+              },
+              include: {
+                type: "string",
+                description: "File pattern to include (e.g., '*.rb', '*.js'). Optional."
+              },
+              case_insensitive: {
+                type: "boolean",
+                description: "Perform case-insensitive search. Optional."
+              }
+            },
+            required: ["pattern"]
           }
         }
+      }.freeze
+
+      def self.definition
+        SCHEMA
       end
 
       def self.execute(params:, context:)

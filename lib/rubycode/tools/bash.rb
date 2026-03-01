@@ -22,28 +22,32 @@ module Rubycode
         echo
       ].freeze
 
-      def self.definition
-        {
-          type: "function",
-          function: {
-            name: "bash",
-            description: "Execute safe bash commands for exploring the filesystem and terminal operations.\n\n" \
-                         "IMPORTANT: This tool is for terminal operations and directory exploration " \
-                         "(ls, find, tree, etc.). DO NOT use it for file operations (reading, searching " \
-                         "file contents) - use the specialized tools instead.\n\n" \
-                         "Whitelisted commands: #{SAFE_COMMANDS.join(", ")}",
-            parameters: {
-              type: "object",
-              properties: {
-                command: {
-                  type: "string",
-                  description: "The bash command to execute (e.g., 'ls -la', 'find . -name \"*.rb\"', 'tree app')"
-                }
-              },
-              required: ["command"]
-            }
+      DESCRIPTION = "Execute safe bash commands for exploring the filesystem and terminal operations.\n\n" \
+                    "IMPORTANT: This tool is for terminal operations and directory exploration " \
+                    "(ls, find, tree, etc.). DO NOT use it for file operations (reading, searching " \
+                    "file contents) - use the specialized tools instead.\n\n" \
+                    "Whitelisted commands: #{SAFE_COMMANDS.join(", ")}".freeze
+
+      SCHEMA = {
+        type: "function",
+        function: {
+          name: "bash",
+          description: DESCRIPTION,
+          parameters: {
+            type: "object",
+            properties: {
+              command: {
+                type: "string",
+                description: "The bash command to execute (e.g., 'ls -la', 'find . -name \"*.rb\"', 'tree app')"
+              }
+            },
+            required: ["command"]
           }
         }
+      }.freeze
+
+      def self.definition
+        SCHEMA
       end
 
       def self.execute(params:, context:)
