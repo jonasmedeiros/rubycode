@@ -45,7 +45,7 @@ require "rubycode"
 Rubycode.configure do |config|
   config.adapter = :ollama
   config.url = "http://localhost:11434"
-  config.model = "qwen3-coder:480b-cloud"
+  config.model = "deepseek-coder-v2"
   config.root_path = Dir.pwd
   config.debug = false
 end
@@ -62,7 +62,7 @@ puts response
 Rubycode.configure do |config|
   config.adapter = :ollama                    # LLM adapter to use
   config.url = "http://localhost:11434"       # Ollama server URL
-  config.model = "qwen3-coder:480b-cloud"     # Model name
+  config.model = "deepseek-coder-v2"          # Model name
   config.root_path = Dir.pwd                  # Project root directory
   config.debug = false                        # Enable debug output
   config.enable_tool_injection_workaround = false  # For weak tool-calling models
