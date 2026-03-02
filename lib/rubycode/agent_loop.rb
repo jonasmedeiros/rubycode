@@ -92,11 +92,8 @@ module RubyCode
       @display_formatter.display_result(result)
       add_tool_result_to_history(tool_name, result)
       result
-    rescue ToolError => e
-      # Tool errors are expected - add to history and continue
-      handle_tool_error(e)
-    rescue StandardError => e
-      # Unexpected errors - add to history and continue
+    rescue ToolError, StandardError => e
+      # Handle all errors - add to history and continue
       handle_tool_error(e)
     end
 

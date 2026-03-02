@@ -37,9 +37,16 @@ module RubyCode
           format_line(lines[i], i + 1)
         end.join("\n")
 
+        build_tool_result(formatted_lines, start_idx, end_idx, lines.length)
+      end
+
+      def build_tool_result(content, start_idx, end_idx, total_lines)
         ToolResult.new(
-          content: formatted_lines,
-          metadata: { line_count: end_idx - start_idx + 1, truncated: end_idx < lines.length - 1 }
+          content: content,
+          metadata: {
+            line_count: end_idx - start_idx + 1,
+            truncated: end_idx < total_lines - 1
+          }
         )
       end
 
