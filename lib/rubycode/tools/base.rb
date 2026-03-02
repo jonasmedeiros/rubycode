@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "json"
+
 module RubyCode
   module Tools
     # Base class for all tools providing common functionality
@@ -23,9 +25,19 @@ module RubyCode
         raise ToolError, "Error in #{self.class.name}: #{e.message}"
       end
 
-      # Must be implemented by subclasses to define tool schema
+      # Load tool schema from JSON file in config/tools/
       def self.definition
-        raise NotImplementedError, "#{name} must implement self.definition"
+        @definition ||= load_schema
+      end
+
+      # Load schema from config/tools/{tool_name}.json
+      def self.load_schema
+        tool_name = name.split("::").last.downcase
+        schema_path = File.join(__dir__, "..", "..", "..", "config", "tools", "#{tool_name}.json")
+
+        raise ToolError, "Schema file not found: #{schema_path}" unless File.exist?(schema_path)
+
+        JSON.parse(File.read(schema_path), symbolize_names: true)
       end
 
       private

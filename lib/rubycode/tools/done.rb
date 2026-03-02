@@ -4,29 +4,6 @@ module RubyCode
   module Tools
     # Tool for signaling task completion
     class Done < Base
-      SCHEMA = {
-        type: "function",
-        function: {
-          name: "done",
-          description: "Call this when you have found the code and are ready to provide your " \
-                       "final answer. This signals you are finished exploring.",
-          parameters: {
-            type: "object",
-            properties: {
-              answer: {
-                type: "string",
-                description: "Your final answer showing the file, line number, current code, and suggested change"
-              }
-            },
-            required: ["answer"]
-          }
-        }
-      }.freeze
-
-      def self.definition
-        SCHEMA
-      end
-
       private
 
       def perform(params)

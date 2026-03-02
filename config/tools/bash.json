@@ -1,0 +1,17 @@
+{
+  "type": "function",
+  "function": {
+    "name": "bash",
+    "description": "Execute safe bash commands for exploring the filesystem and terminal operations.\n\nUse this for any command-line operations including:\n- Directory exploration: ls, find, tree\n- File inspection: cat, head, tail, wc, file\n- Content search: grep, rg (ripgrep)\n\nExamples:\n- grep -rn 'button' app/views\n- find . -name '*.rb' -type f\n- ls -la app/\n\nWhitelisted commands: ls, pwd, find, tree, cat, head, tail, wc, file, which, echo, grep, rg",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "The bash command to execute. Examples:\n- 'grep -rn \"button\" app/views' (search for text in files)\n- 'find . -name \"*.rb\"' (find files by name)\n- 'ls -la app/' (list directory contents)"
+        }
+      },
+      "required": ["command"]
+    }
+  }
+}
