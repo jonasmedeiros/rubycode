@@ -3,10 +3,10 @@
 require "English"
 require "shellwords"
 
-module Rubycode
+module RubyCode
   module Tools
     # Tool for executing safe bash commands
-    class Bash
+    class Bash < Base
       # Whitelist of safe commands
       SAFE_COMMANDS = %w[
         ls
@@ -50,39 +50,42 @@ module Rubycode
         SCHEMA
       end
 
-      def self.execute(params:, context:)
+      private
+
+      def perform(params)
         command = params["command"].strip
         base_command = command.split.first
 
-        return safe_command_error(base_command) unless SAFE_COMMANDS.include?(base_command)
+        raise UnsafeCommandError, safe_command_error(base_command) unless SAFE_COMMANDS.include?(base_command)
 
-        run_command(command, context[:root_path])
-      rescue StandardError => e
-        "Error executing command: #{e.message}"
+        execute_command(command)
       end
 
-      def self.safe_command_error(base_command)
-        "Error: Command '#{base_command}' is not allowed. Safe commands: #{SAFE_COMMANDS.join(", ")}"
+      def safe_command_error(base_command)
+        "Command '#{base_command}' is not allowed. Safe commands: #{SAFE_COMMANDS.join(", ")}"
       end
 
-      def self.run_command(command, root_path)
+      def execute_command(command)
         Dir.chdir(root_path) do
           output = `#{command} 2>&1`
           exit_code = $CHILD_STATUS.exitstatus
 
-          exit_code.zero? ? truncate_output(output) : command_error(exit_code, output)
+          raise CommandExecutionError, "Command failed with exit code #{exit_code}:\n#{output}" unless exit_code.zero?
+
+          CommandResult.new(
+            stdout: truncate_output(output),
+            stderr: "",
+            exit_code: exit_code
+          )
         end
       end
 
-      def self.truncate_output(output)
+      def truncate_output(output)
         lines = output.split("\n")
         return output if lines.length <= 200
 
-        lines[0..199].join("\n") + "\n\n... (#{lines.length - 200} more lines truncated)"
-      end
-
-      def self.command_error(exit_code, output)
-        "Command failed with exit code #{exit_code}:\n#{output}"
+        truncated_output = lines[0..199].join("\n")
+        "#{truncated_output}\n\n... (#{lines.length - 200} more lines truncated)"
       end
     end
   end

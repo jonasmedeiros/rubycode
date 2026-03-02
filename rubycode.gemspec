@@ -4,7 +4,7 @@ require_relative "lib/rubycode/version"
 
 Gem::Specification.new do |spec|
   spec.name          = "rubycode"
-  spec.version       = Rubycode::VERSION
+  spec.version       = RubyCode::VERSION
   spec.authors       = ["Jonas Medeiros"]
   spec.email         = ["jonas.g.medeiros@gmail.com"]
 

@@ -29,7 +29,7 @@ debug_input = gets.chomp.downcase
 debug_mode = %w[y yes].include?(debug_input)
 
 # Configure the client
-Rubycode.configure do |config|
+RubyCode.configure do |config|
   config.adapter = :ollama
   config.url = "http://localhost:11434"
   config.model = "deepseek-v3.1:671b-cloud"
@@ -44,7 +44,7 @@ end
 puts "🐛 Debug mode: #{debug_mode ? "ON" : "OFF"}" if debug_mode
 
 # Create a client
-client = Rubycode::Client.new
+client = RubyCode::Client.new
 
 puts "\n#{"=" * 80}"
 puts "✨ Agent initialized! You can now ask questions or request code changes."

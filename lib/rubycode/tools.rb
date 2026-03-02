@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "tools/base"
 require_relative "tools/bash"
 require_relative "tools/read"
 require_relative "tools/search"
 require_relative "tools/done"
 
-module Rubycode
+module RubyCode
   # Collection of available tools for the AI agent
   module Tools
     # Registry of all available tools
@@ -23,9 +24,14 @@ module Rubycode
     def self.execute(tool_name:, params:, context:)
       tool_class = TOOLS.find { |t| t.definition[:function][:name] == tool_name }
 
-      return "Error: Unknown tool '#{tool_name}'" unless tool_class
+      raise ToolError, "Unknown tool '#{tool_name}'" unless tool_class
 
-      tool_class.execute(params: params, context: context)
+      # Instantiate tool and call execute
+      tool_instance = tool_class.new(context: context)
+      result = tool_instance.execute(params)
+
+      # Convert result to string for history compatibility
+      result.respond_to?(:to_s) ? result.to_s : result
     end
   end
 end

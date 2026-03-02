@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Rubycode
+module RubyCode
   module Adapters
     # Base adapter class for LLM integrations
     class Base

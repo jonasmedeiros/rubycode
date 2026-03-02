@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Rubycode
+module RubyCode
   # Configuration class for Rubycode settings
   class Configuration
     attr_accessor :adapter, :url, :model, :root_path, :debug, :enable_tool_injection_workaround

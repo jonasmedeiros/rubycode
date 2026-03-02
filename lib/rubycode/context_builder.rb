@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Rubycode
+module RubyCode
   # Builds environment context for the AI assistant
   class ContextBuilder
     def initialize(root_path:)

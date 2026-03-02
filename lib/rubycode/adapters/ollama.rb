@@ -3,7 +3,7 @@
 require "net/http"
 require "json"
 
-module Rubycode
+module RubyCode
   module Adapters
     # Ollama adapter for local LLM integration
     class Ollama < Base
