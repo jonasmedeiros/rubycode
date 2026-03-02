@@ -20,12 +20,19 @@ module RubyCode
         file
         which
         echo
+        grep
+        rg
       ].freeze
 
       DESCRIPTION = "Execute safe bash commands for exploring the filesystem and terminal operations.\n\n" \
-                    "IMPORTANT: This tool is for terminal operations and directory exploration " \
-                    "(ls, find, tree, etc.). DO NOT use it for file operations (reading, searching " \
-                    "file contents) - use the specialized tools instead.\n\n" \
+                    "Use this for any command-line operations including:\n" \
+                    "- Directory exploration: ls, find, tree\n" \
+                    "- File inspection: cat, head, tail, wc, file\n" \
+                    "- Content search: grep, rg (ripgrep)\n\n" \
+                    "Examples:\n" \
+                    "- grep -rn 'button' app/views\n" \
+                    "- find . -name '*.rb' -type f\n" \
+                    "- ls -la app/\n\n" \
                     "Whitelisted commands: #{SAFE_COMMANDS.join(", ")}".freeze
 
       SCHEMA = {
@@ -38,7 +45,10 @@ module RubyCode
             properties: {
               command: {
                 type: "string",
-                description: "The bash command to execute (e.g., 'ls -la', 'find . -name \"*.rb\"', 'tree app')"
+                description: "The bash command to execute. Examples:\n" \
+                             "- 'grep -rn \"button\" app/views' (search for text in files)\n" \
+                             "- 'find . -name \"*.rb\"' (find files by name)\n" \
+                             "- 'ls -la app/' (list directory contents)"
               }
             },
             required: ["command"]

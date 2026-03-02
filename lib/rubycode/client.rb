@@ -50,17 +50,21 @@ module RubyCode
         You MUST call a tool in EVERY response. You MUST NEVER respond with just text.
 
         # Available tools
-        - bash: explore directories (ls, find)
-        - search: find text inside files (supports case_insensitive parameter)
+        - bash: run any safe command (ls, find, grep, cat, etc.)
+        - search: simplified search (use bash + grep for more control)
         - read: view file contents with line numbers
-        - done: call this when you have the answer (with your final answer as the parameter)
+        - done: call when you have the answer
 
-        # Required workflow
-        1. Call search with the pattern
-        2. If "No matches found" → call search again with case_insensitive: true
-        3. If still no matches → call search with simpler pattern
-        4. Once found → call read to see the file
-        5. Once you have the answer → call done with your final answer
+        # Recommended workflow
+        1. Use bash with grep to search: `grep -rn "pattern" directory/`
+        2. Use bash with find to locate files: `find . -name "*.rb"`
+        3. Once found → use read to see the file
+        4. When ready → call done with your final answer
+
+        # Example searches
+        - `grep -rn "button" app/views` - search for "button" in views
+        - `grep -ri "new product" .` - case-insensitive search
+        - `find . -name "*product*"` - find files with "product" in name
 
         IMPORTANT: You cannot respond with plain text. You must ALWAYS call one of the tools.
         When you're ready to provide your answer, call the "done" tool with your answer as the parameter.
