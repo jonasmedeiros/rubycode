@@ -1,6 +1,11 @@
 # RubyCode
 
+[![Gem Version](https://badge.fury.io/rb/rubycode.svg)](https://badge.fury.io/rb/rubycode)
+[![GitHub](https://img.shields.io/github/license/jonasmedeiros/rubycode)](https://github.com/jonasmedeiros/rubycode)
+
 A Ruby-native AI coding assistant with pluggable LLM adapters. RubyCode provides an agent-based system that can explore codebases, search files, execute commands, and assist with coding tasks.
+
+**GitHub Repository**: [github.com/jonasmedeiros/rubycode](https://github.com/jonasmedeiros/rubycode)
 
 ## Features
 
@@ -42,7 +47,7 @@ bundle install
 require "rubycode"
 
 # Configure the LLM adapter
-Rubycode.configure do |config|
+RubyCode.configure do |config|
   config.adapter = :ollama
   config.url = "http://localhost:11434"
   config.model = "deepseek-v3.1:671b-cloud"
@@ -51,7 +56,7 @@ Rubycode.configure do |config|
 end
 
 # Create a client and ask a question
-client = Rubycode::Client.new
+client = RubyCode::Client.new
 response = client.ask(prompt: "Find the User model in the codebase")
 puts response
 ```
@@ -59,13 +64,13 @@ puts response
 ### Configuration Options
 
 ```ruby
-Rubycode.configure do |config|
+RubyCode.configure do |config|
   config.adapter = :ollama                    # LLM adapter to use
   config.url = "http://localhost:11434"       # Ollama server URL
   config.model = "deepseek-v3.1:671b-cloud"   # Model name
   config.root_path = Dir.pwd                  # Project root directory
   config.debug = false                        # Enable debug output
-  config.enable_tool_injection_workaround = false  # For weak tool-calling models
+  config.enable_tool_injection_workaround = true  # Force tool usage (enabled by default)
 end
 ```
 
@@ -73,10 +78,16 @@ end
 
 The agent has access to four built-in tools:
 
-1. **bash**: Execute safe bash commands (ls, pwd, find, tree, cat, head, tail, wc, file, which, echo)
-2. **search**: Search file contents using grep with regex and case-insensitive options
+1. **bash**: Execute safe bash commands including:
+   - Directory exploration: `ls`, `pwd`, `find`, `tree`
+   - File inspection: `cat`, `head`, `tail`, `wc`, `file`
+   - Content search: `grep`, `rg` (ripgrep)
+   - Examples: `grep -rn "button" app/views`, `find . -name "*.rb"`
+2. **search**: Simplified search wrapper (use bash + grep for more control)
 3. **read**: Read files with line numbers or list directory contents
 4. **done**: Signal completion and provide the final answer
+
+**Note**: Tool schemas are externalized in `config/tools/*.json` for easy customization.
 
 ## Development
 
