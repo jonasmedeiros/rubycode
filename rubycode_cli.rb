@@ -36,9 +36,8 @@ RubyCode.configure do |config|
   config.root_path = full_path
   config.debug = debug_mode
 
-  # Test deepseek WITHOUT workaround first - it should have better tool-calling than qwen3
-  # If it fails, enable this: config.enable_tool_injection_workaround = true
-  config.enable_tool_injection_workaround = false
+  # Enable workaround to force tool-calling for models that don't follow instructions
+  config.enable_tool_injection_workaround = true
 end
 
 puts "🐛 Debug mode: #{debug_mode ? "ON" : "OFF"}" if debug_mode

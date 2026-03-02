@@ -12,10 +12,10 @@ module RubyCode
       @root_path = Dir.pwd
       @debug = false # Set to true to see JSON requests/responses
 
-      # WORKAROUND for weak tool-calling models
+      # WORKAROUND for models that don't follow tool-calling instructions
       # When enabled, injects reminder messages if model generates text instead of calling tools
-      # Set to true ONLY for testing with weak models
-      @enable_tool_injection_workaround = false
+      # Enabled by default as most models need this nudge
+      @enable_tool_injection_workaround = true
     end
   end
 end
