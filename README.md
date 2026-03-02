@@ -7,6 +7,12 @@ A Ruby-native AI coding assistant with pluggable LLM adapters. RubyCode provides
 
 **GitHub Repository**: [github.com/jonasmedeiros/rubycode](https://github.com/jonasmedeiros/rubycode)
 
+## Demo
+
+![RubyCode in action](docs/images/demo.png)
+
+*RubyCode autonomously exploring a Rails codebase, finding the right file, and suggesting code changes.*
+
 ## Features
 
 - **AI Agent Loop**: Autonomous task execution with tool calling
