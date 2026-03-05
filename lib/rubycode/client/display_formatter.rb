@@ -38,6 +38,14 @@ module RubyCode
         puts "   #{@pastel.green("✓")} #{@pastel.dim("Result:")} #{first_line}#{suffix}"
       end
 
+      def display_info(message)
+        puts "   #{@pastel.dim("ℹ #{message}")}"
+      end
+
+      def display_skip_notification(_tool_name, detail)
+        puts @pastel.yellow("   ⓘ Skipped: #{detail}")
+      end
+
       private
 
       def display_minimal_tool_info(tool_name, arguments)
@@ -49,18 +57,18 @@ module RubyCode
 
         # Table for structured display
         table = TTY::Table.new(rows: [
-          [
-            @pastel.cyan(label),
-            truncate_value(value, 60)
-          ]
-        ])
+                                 [
+                                   @pastel.cyan(label),
+                                   truncate_value(value, 60)
+                                 ]
+                               ])
         puts "  #{table.render(:basic, padding: [0, 1])}"
       end
 
       def truncate_value(value, max_length)
         return value if value.length <= max_length
 
-        "#{value[0...max_length - 3]}..."
+        "#{value[0...(max_length - 3)]}..."
       end
 
       def extract_argument_value(arguments, key)

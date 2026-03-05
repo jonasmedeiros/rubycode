@@ -2,6 +2,7 @@
 
 require_relative "client/response_handler"
 require_relative "client/display_formatter"
+require_relative "client/approval_handler"
 require "pastel"
 
 module RubyCode
@@ -19,6 +20,7 @@ module RubyCode
       @tty_prompt = tty_prompt
       @response_handler = Client::ResponseHandler.new(history: @history, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
+      @approval_handler = Client::ApprovalHandler.new(tty_prompt: @tty_prompt, config: @config)
       @pastel = Pastel.new
     end
 
@@ -74,7 +76,7 @@ module RubyCode
     def execute_tool_calls(tool_calls, iteration)
       unless @config.debug
         # Header with border
-        puts "#{@pastel.cyan("┌─ Iteration #{iteration} ─────────────────────────")}"
+        puts @pastel.cyan("┌─ Iteration #{iteration} ─────────────────────────")
 
         # Show tool list
         tool_calls.each_with_index do |tool_call, idx|
@@ -93,7 +95,7 @@ module RubyCode
         end
       end
 
-      puts "#{@pastel.cyan("└────────────────────────────────────────────────")}" unless @config.debug
+      puts @pastel.cyan("└────────────────────────────────────────────────") unless @config.debug
       done_result
     end
 
@@ -127,7 +129,13 @@ module RubyCode
     end
 
     def run_tool(tool_name, params)
-      context = { root_path: @config.root_path, read_files: @read_files, tty_prompt: @tty_prompt }
+      context = {
+        root_path: @config.root_path,
+        read_files: @read_files,
+        tty_prompt: @tty_prompt,
+        approval_handler: @approval_handler,
+        display_formatter: @display_formatter
+      }
       Tools.execute(tool_name: tool_name, params: params, context: context)
     rescue ToolError => e
       # Re-raise tool errors to be caught by execute_tool

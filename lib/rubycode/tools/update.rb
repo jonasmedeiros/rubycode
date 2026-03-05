@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require "tty-prompt"
-require "pastel"
-
 module RubyCode
   module Tools
     # Tool for updating existing files
@@ -22,7 +19,8 @@ module RubyCode
         # Auto-read if not already read
         read_files = context[:read_files]
         unless read_files&.include?(full_path)
-          puts "   #{Pastel.new.dim("ℹ Auto-reading file before update...")}"
+          display_formatter = context[:display_formatter]
+          display_formatter.display_info("Auto-reading file before update...")
           # Mark as read
           read_files&.add(full_path)
         end
@@ -44,8 +42,10 @@ module RubyCode
         end
 
         # Request user approval
-        unless request_approval(file_path, old_string, new_string)
-          raise ToolError, "USER CANCELLED: The user declined this change. Do not retry this exact update. Either move to the next change or call 'done' to finish."
+        approval_handler = context[:approval_handler]
+        unless approval_handler.request_update_approval(file_path, old_string, new_string)
+          raise ToolError,
+                "USER CANCELLED: The user declined this change. Do not retry this exact update. Either move to the next change or call 'done' to finish."
         end
 
         # Perform replacement
@@ -62,40 +62,6 @@ module RubyCode
             new_lines: new_string.lines.count
           }
         )
-      end
-
-      def request_approval(file_path, old_string, new_string)
-        pastel = Pastel.new
-        prompt = context[:tty_prompt] || TTY::Prompt.new(input: $stdin, output: $stdout)
-
-        # Show diff
-        puts "\n#{pastel.yellow("━" * 80)}"
-        puts pastel.bold("Update Operation - Approval Required")
-        puts "#{pastel.cyan("File:")} #{file_path}"
-        puts pastel.yellow("─" * 80)
-
-        # Show old content (with context)
-        puts pastel.red("- REMOVE:")
-        old_string.lines.each { |line| puts pastel.red("  - #{line.chomp}") }
-
-        puts ""
-
-        # Show new content
-        puts pastel.green("+ ADD:")
-        new_string.lines.each { |line| puts pastel.green("  + #{line.chomp}") }
-
-        puts pastel.yellow("━" * 80)
-
-        # Ask for approval
-        approved = prompt.yes?("Apply this update?") do |q|
-          q.default false
-        end
-
-        unless approved
-          puts pastel.yellow("   ⓘ Skipped: User declined to update #{file_path}")
-        end
-
-        approved
       end
 
       def resolve_path(file_path)
