@@ -3,13 +3,8 @@
 
 require_relative "lib/rubycode"
 require "tty-prompt"
-require "tty-box"
-require "tty-table"
-require "tty-markdown"
-require "pastel"
 
 prompt = TTY::Prompt.new
-pastel = Pastel.new
 adapter = :ollama
 
 model = "deepseek-v3.1:671b-cloud"
@@ -26,7 +21,7 @@ directory = Dir.pwd if directory.nil? || directory.empty?
 full_path = File.expand_path(directory)
 
 unless Dir.exist?(full_path)
-  puts "\n#{pastel.red("[ERROR]")} Directory '#{full_path}' does not exist!"
+  puts RubyCode::Views::Cli::ErrorMessage.build(message: "Directory '#{full_path}' does not exist!")
   exit 1
 end
 
@@ -44,51 +39,36 @@ RubyCode.configure do |config|
   config.enable_tool_injection_workaround = true
 end
 
-config_table = TTY::Table.new(
-  header: [pastel.bold("Setting"), pastel.bold("Value")],
-  rows: [
-    ["Directory", full_path],
-    ["Model", model],
-    ["Debug Mode", debug_mode ? pastel.green("ON") : pastel.dim("OFF")]
-  ]
+puts RubyCode::Views::Cli::ConfigurationTable.build(
+  directory: full_path,
+  model: model,
+  debug_mode: debug_mode
 )
-puts "\n#{config_table.render(:unicode, padding: [0, 1])}"
 
 client = RubyCode::Client.new(tty_prompt: prompt)
 
-puts "\n#{pastel.green("✓")} #{pastel.bold("Ready!")} You can now ask questions or request code changes."
+puts RubyCode::Views::Cli::ReadyMessage.build
 
 loop do
-  user_input = gets&.chomp
+  user_input = prompt.ask("You: ") rescue nil
   break if user_input.nil?
 
   case user_input.strip.downcase
   when "exit", "quit"
-    puts "\n#{pastel.green("Goodbye!")}\n"
+    puts RubyCode::Views::Cli::ExitMessage.build
     break
   when "clear"
     client.clear_history
-    puts "#{pastel.yellow("✓")} History cleared!"
+    puts RubyCode::Views::Cli::HistoryClearedMessage.build
     next
   end
 
   begin
     response = client.ask(prompt: user_input)
-
-    puts "\n#{pastel.magenta("╔═══ Agent Response ═══")}"
-
-    begin
-      rendered = TTY::Markdown.parse(response, width: 80)
-      puts rendered
-    rescue StandardError
-      puts response
-    end
-
-    puts pastel.magenta("╚══════════════════════")
+    puts RubyCode::Views::Cli::ResponseBox.build(response: response)
   rescue Interrupt
-    puts "\n#{pastel.yellow("[INTERRUPTED]")} Type 'exit' to quit or continue chatting."
+    puts RubyCode::Views::Cli::InterruptMessage.build
   rescue StandardError => e
-    puts "\n#{pastel.red("[ERROR]")} #{e.message}"
-    puts pastel.dim(e.backtrace.first(3).join("\n"))
+    puts RubyCode::Views::Cli::ErrorDisplay.build(error: e)
   end
 end
