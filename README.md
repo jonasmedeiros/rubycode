@@ -16,13 +16,18 @@ A Ruby-native AI coding assistant with pluggable LLM adapters. RubyCode provides
 ## Features
 
 - **AI Agent Loop**: Autonomous task execution with tool calling
-- **Pluggable LLM Adapters**: Currently supports Ollama, easily extendable to other LLMs
+- **Pluggable LLM Adapters**: Currently supports Ollama with configurable timeouts and retry logic
 - **Built-in Tools**:
   - `bash`: Execute safe bash commands for filesystem exploration
   - `search`: Search file contents using grep with regex support
   - `read`: Read files and directories with line numbers
+  - `write`: Create new files with user approval
+  - `update`: Edit existing files with user approval
   - `done`: Signal task completion with final answer
-- **Conversation History**: Maintains context across interactions
+- **Persistent Memory**: SQLite-backed conversation history with Sequel ORM
+- **Enhanced CLI**: TTY-based interface with formatted output, progress indicators, and approval workflows
+- **Resilient Network**: Automatic retry with exponential backoff for LLM requests
+- **I18n Support**: Internationalized error messages and UI text
 - **Environment Context**: Automatically provides Ruby version, platform, and working directory info
 
 ## Installation
@@ -77,12 +82,18 @@ RubyCode.configure do |config|
   config.root_path = Dir.pwd                  # Project root directory
   config.debug = false                        # Enable debug output
   config.enable_tool_injection_workaround = true  # Force tool usage (enabled by default)
+
+  # HTTP timeout and retry settings (new in 0.1.3)
+  config.http_read_timeout = 120              # Request timeout in seconds (default: 120)
+  config.http_open_timeout = 10               # Connection timeout in seconds (default: 10)
+  config.max_retries = 3                      # Number of retry attempts (default: 3)
+  config.retry_base_delay = 2.0               # Exponential backoff base delay (default: 2.0)
 end
 ```
 
 ### Available Tools
 
-The agent has access to four built-in tools:
+The agent has access to six built-in tools:
 
 1. **bash**: Execute safe bash commands including:
    - Directory exploration: `ls`, `pwd`, `find`, `tree`
@@ -91,9 +102,21 @@ The agent has access to four built-in tools:
    - Examples: `grep -rn "button" app/views`, `find . -name "*.rb"`
 2. **search**: Simplified search wrapper (use bash + grep for more control)
 3. **read**: Read files with line numbers or list directory contents
-4. **done**: Signal completion and provide the final answer
+4. **write**: Create new files (requires user approval)
+5. **update**: Edit existing files with exact string replacement (requires user approval)
+6. **done**: Signal completion and provide the final answer
 
 **Note**: Tool schemas are externalized in `config/tools/*.json` for easy customization.
+
+### New in 0.1.3
+
+- **Persistent Memory**: Conversation history now stored in SQLite database using Sequel ORM
+- **Write & Update Tools**: Create and modify files with user approval workflow
+- **Network Resilience**: Automatic retry with exponential backoff for failed LLM requests
+- **Enhanced CLI**: Improved UI with TTY toolkit, formatted output, and progress indicators
+- **I18n Support**: Internationalized error messages and system prompts
+- **Improved Architecture**: Separated database connection management, view classes for all UI components
+- **Cross-platform Support**: Added Linux platform support for CI/CD environments
 
 ## Development
 
