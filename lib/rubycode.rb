@@ -33,6 +33,11 @@ require_relative "rubycode/views/formatter/debug_tool_info"
 require_relative "rubycode/views/formatter/tool_result"
 require_relative "rubycode/views/formatter/info_message"
 require_relative "rubycode/views/formatter/minimal_tool_info"
+require_relative "rubycode/views/response_handler/max_iterations"
+require_relative "rubycode/views/response_handler/max_tool_calls"
+require_relative "rubycode/views/response_handler/complete_message"
+require_relative "rubycode/views/response_handler/agent_finished"
+require_relative "rubycode/views/response_handler/tool_injection_warning"
 
 # Rubycode is a Ruby-native AI coding agent with pluggable LLM adapters
 module RubyCode
