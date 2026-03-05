@@ -66,7 +66,7 @@ module RubyCode
 
       def request_approval(file_path, old_string, new_string)
         pastel = Pastel.new
-        prompt = TTY::Prompt.new
+        prompt = context[:tty_prompt] || TTY::Prompt.new(input: $stdin, output: $stdout)
 
         # Show diff
         puts "\n#{pastel.yellow("━" * 80)}"

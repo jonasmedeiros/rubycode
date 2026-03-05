@@ -11,6 +11,7 @@ require_relative "rubycode/adapters/ollama"
 require_relative "rubycode/tools"
 require_relative "rubycode/agent_loop"
 require_relative "rubycode/client"
+require_relative "rubycode/views/welcome"
 
 # Rubycode is a Ruby-native AI coding agent with pluggable LLM adapters
 module RubyCode

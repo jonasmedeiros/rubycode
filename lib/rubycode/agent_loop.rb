@@ -10,12 +10,13 @@ module RubyCode
     MAX_ITERATIONS = 25
     MAX_TOOL_CALLS = 50
 
-    def initialize(adapter:, history:, config:, system_prompt:, read_files:)
+    def initialize(adapter:, history:, config:, system_prompt:, read_files:, tty_prompt: nil)
       @adapter = adapter
       @history = history
       @config = config
       @system_prompt = system_prompt
       @read_files = read_files
+      @tty_prompt = tty_prompt
       @response_handler = Client::ResponseHandler.new(history: @history, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
       @pastel = Pastel.new
@@ -126,7 +127,7 @@ module RubyCode
     end
 
     def run_tool(tool_name, params)
-      context = { root_path: @config.root_path, read_files: @read_files }
+      context = { root_path: @config.root_path, read_files: @read_files, tty_prompt: @tty_prompt }
       Tools.execute(tool_name: tool_name, params: params, context: context)
     rescue ToolError => e
       # Re-raise tool errors to be caught by execute_tool

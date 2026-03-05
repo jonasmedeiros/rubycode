@@ -7,11 +7,12 @@ module RubyCode
   class Client
     attr_reader :history
 
-    def initialize
+    def initialize(tty_prompt: nil)
       @config = RubyCode.config
       @adapter = build_adapter
       @history = History.new
       @read_files = Set.new
+      @tty_prompt = tty_prompt
     end
 
     def ask(prompt:)
@@ -23,7 +24,8 @@ module RubyCode
         history: @history,
         config: @config,
         system_prompt: system_prompt,
-        read_files: @read_files
+        read_files: @read_files,
+        tty_prompt: @tty_prompt
       ).run
     end
 
