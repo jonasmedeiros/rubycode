@@ -35,6 +35,9 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
+  # I18n for internationalization
+  spec.add_dependency "i18n", "~> 1.14"
+
   # TTY toolkit dependencies for enhanced CLI
   spec.add_dependency "pastel", "~> 0.8"
   spec.add_dependency "tty-box", "~> 0.7"

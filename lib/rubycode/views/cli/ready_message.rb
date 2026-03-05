@@ -9,7 +9,7 @@ module RubyCode
       class ReadyMessage
         def self.build
           pastel = Pastel.new
-          "\n#{pastel.green("✓")} #{pastel.bold("Ready!")} You can now ask questions or request code changes."
+          "\n#{pastel.green("✓")} #{pastel.bold("Ready!")} #{I18n.t("rubycode.cli.ready")}"
         end
       end
     end

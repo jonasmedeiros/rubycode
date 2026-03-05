@@ -1,0 +1,83 @@
+en:
+  rubycode:
+    cli:
+      ready: "Ready! You can now ask questions or request code changes."
+      exit: "Goodbye!"
+      history_cleared: "History cleared"
+      interrupted: "Operation cancelled by user"
+
+    welcome:
+      title: "RubyCode v%{version}"
+      subtitle: "AI Ruby/Rails Code Assistant"
+      built_with: "Built with: %{stack}"
+      stack: "Ollama + DeepSeek + TTY Toolkit"
+      commands: "Commands: exit, quit, clear"
+
+    approval:
+      bash:
+        title: "Bash Command - Approval Required"
+        command: "Command"
+        base_command: "Base Command"
+        safe_commands: "Safe Commands (no approval needed)"
+        prompt: "Execute this command?"
+
+      write:
+        title: "Write Operation - Approval Required"
+        file: "File"
+        lines: "Lines"
+        prompt: "Create this file?"
+        truncated: "... (%{count} more lines)"
+
+      update:
+        title: "Update Operation - Approval Required"
+        file: "File"
+        remove_label: "- REMOVE:"
+        add_label: "+ ADD:"
+        prompt: "Apply this update?"
+
+      skip:
+        message: "Skipping approval (auto-approve enabled)"
+
+    response_handler:
+      max_iterations:
+        title: "⚠ WARNING"
+        message: "Reached maximum iterations (%{max})\nThe agent may be stuck in a loop."
+
+      max_tool_calls:
+        title: "⚠ WARNING"
+        message: "Reached maximum tool calls (%{max})\nStopping to prevent excessive operations."
+
+      complete:
+        title: "✓ SUCCESS"
+        message: "Task completed\n%{iterations} iterations, %{tool_calls} tool calls"
+
+      agent_finished:
+        title: "✓ SUCCESS"
+        message: "Agent finished\n%{iterations} iterations, %{tool_calls} tool calls"
+
+      tool_injection_warning: "No tool calls - injecting reminder (iteration %{iteration})"
+
+    agent_loop:
+      thinking: "Thinking..."
+      response_received: "Response received"
+      iteration: "Iteration %{number}"
+      tool_error: "Tool error: %{error}"
+
+    formatter:
+      tool_result: "Result"
+      info_prefix: "ℹ"
+      debug_prefix: "[DEBUG]"
+      error_prefix: "[ERROR]"
+
+    errors:
+      unknown_adapter: "Unknown Adapter"
+      file_not_found: "File '%{path}' not found"
+      file_exists: "File '%{path}' already exists. Use 'update' tool to modify it."
+      string_not_found: "String not found in file. Searched for:\n%{string}"
+      string_not_unique: "String appears %{count} times. Must be unique for safe replacement."
+      command_failed: "Command failed with exit code %{code}:\n%{output}"
+      user_cancelled_bash: "USER CANCELLED: The user declined to execute '%{command}'. Do not retry this command. Either use a whitelisted command (%{safe_commands}) or call 'done' to finish."
+      user_cancelled_update: "USER CANCELLED: The user declined this change. Do not retry this exact update. Either move to the next change or call 'done' to finish."
+      user_cancelled_write: "USER CANCELLED: The user declined to create this file. Do not retry this operation. Ask the user if they want to make a different change or call 'done' to finish."
+      max_iterations_reached: "Reached maximum iterations"
+      max_tool_calls_reached: "Reached maximum tool calls"

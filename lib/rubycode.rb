@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "i18n"
 require_relative "rubycode/version"
 require_relative "rubycode/errors"
 require_relative "rubycode/value_objects"
@@ -27,4 +28,9 @@ module RubyCode
   def self.config
     self.configuration ||= Configuration.new
   end
+
+  # Configure I18n
+  I18n.load_path += Dir[File.join(__dir__, "..", "config", "locales", "*.yml")]
+  I18n.backend.load_translations
+  I18n.default_locale = :en
 end

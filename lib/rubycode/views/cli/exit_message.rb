@@ -9,7 +9,7 @@ module RubyCode
       class ExitMessage
         def self.build
           pastel = Pastel.new
-          "\n#{pastel.green("Goodbye!")}\n"
+          "\n#{pastel.green(I18n.t("rubycode.cli.exit"))}\n"
         end
       end
     end

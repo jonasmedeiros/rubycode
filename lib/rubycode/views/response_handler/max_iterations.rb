@@ -9,7 +9,7 @@ module RubyCode
       class MaxIterations
         def self.build(max_iterations:)
           error_box = TTY::Box.frame(
-            title: { top_left: " ⚠ WARNING " },
+            title: { top_left: " #{I18n.t("rubycode.response_handler.max_iterations.title")} " },
             border: :thick,
             padding: 1,
             style: {
@@ -19,7 +19,7 @@ module RubyCode
               }
             }
           ) do
-            "Reached maximum iterations (#{max_iterations})\nThe agent may be stuck in a loop."
+            I18n.t("rubycode.response_handler.max_iterations.message", max: max_iterations)
           end
           "\n#{error_box}"
         end
