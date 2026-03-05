@@ -4,6 +4,7 @@ require "json"
 
 module RubyCode
   module Tools
+    # Base class for all tools that can be executed by the AI agent
     class Base
       attr_reader :context
 

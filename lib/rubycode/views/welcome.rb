@@ -4,6 +4,7 @@ require "pastel"
 
 module RubyCode
   module Views
+    # Displays welcome message when CLI starts
     class Welcome
       def self.build
         pastel = Pastel.new

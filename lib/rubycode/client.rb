@@ -24,8 +24,7 @@ module RubyCode
         history: @history,
         config: @config,
         system_prompt: system_prompt,
-        read_files: @read_files,
-        tty_prompt: @tty_prompt
+        options: { read_files: @read_files, tty_prompt: @tty_prompt }
       ).run
     end
 
@@ -48,14 +47,27 @@ module RubyCode
     def build_system_prompt
       context = ContextBuilder.new(root_path: @config.root_path).environment_context
 
-      <<~PROMPT
-        You are a helpful Ruby on Rails coding assistant.
+      [
+        "You are a helpful Ruby on Rails coding assistant.",
+        "",
+        context,
+        "",
+        critical_rules,
+        available_tools_section,
+        workflow_section,
+        done_rules_section,
+        cancellation_rules_section,
+        example_searches_section,
+        final_reminder
+      ].join("\n")
+    end
 
-        #{context}
+    def critical_rules
+      "# CRITICAL RULE\nYou MUST call a tool in EVERY response. You MUST NEVER respond with just text."
+    end
 
-        # CRITICAL RULE
-        You MUST call a tool in EVERY response. You MUST NEVER respond with just text.
-
+    def available_tools_section
+      <<~TOOLS.chomp
         # Available tools
         - bash: run commands (whitelisted commands run directly, others require user approval)
           Whitelisted: ls, pwd, find, tree, cat, head, tail, wc, file, which, echo, grep, rg
@@ -64,14 +76,22 @@ module RubyCode
         - write: create new files (requires approval, errors if file exists)
         - update: modify existing files (auto-reads if needed, requires approval)
         - done: MUST call when task is complete (see below)
+      TOOLS
+    end
 
+    def workflow_section
+      <<~WORKFLOW.chomp
         # Recommended workflow
         1. Use bash with grep to search: `grep -rn "pattern" directory/`
         2. Use bash with find to locate files: `find . -name "*.rb"`
         3. Once found → use read to see the file
         4. Make changes with write/update if needed
         5. IMMEDIATELY call done when finished - do not continue exploring
+      WORKFLOW
+    end
 
+    def done_rules_section
+      <<~DONE_RULES.chomp
         # CRITICAL: When to call 'done'
         You MUST call 'done' immediately after:
         - Completing file changes (write/update operations succeeded)
@@ -80,22 +100,32 @@ module RubyCode
         - Unable to proceed (errors, file not found, etc.)
 
         Do NOT keep exploring after the task is done. Call 'done' right away.
+      DONE_RULES
+    end
 
+    def cancellation_rules_section
+      <<~CANCELLATION.chomp
         # CRITICAL: Handling user cancellations
         If you see "USER CANCELLED" in an error message:
         - The user explicitly declined that specific operation
         - Do NOT retry the exact same operation - the user has rejected it
         - Move on to other changes, or call 'done' if there's nothing else to do
         - Never get stuck in a loop retrying cancelled operations
+      CANCELLATION
+    end
 
+    def example_searches_section
+      <<~EXAMPLES.chomp
         # Example searches
         - `grep -rn "button" app/views` - search for "button" in views
         - `grep -ri "new product" .` - case-insensitive search
         - `find . -name "*product*"` - find files with "product" in name
+      EXAMPLES
+    end
 
-        IMPORTANT: You cannot respond with plain text. You must ALWAYS call one of the tools.
-        When you're ready to provide your answer, call the "done" tool with your answer as the parameter.
-      PROMPT
+    def final_reminder
+      "IMPORTANT: You cannot respond with plain text. You must ALWAYS call one of the tools.\n" \
+        'When you\'re ready to provide your answer, call the "done" tool with your answer as the parameter.'
     end
   end
 end

@@ -5,6 +5,7 @@ require "shellwords"
 
 module RubyCode
   module Tools
+    # Tool for executing bash commands with safety checks and approval workflow
     class Bash < Base
       SAFE_COMMANDS = %w[
         ls
@@ -31,8 +32,11 @@ module RubyCode
         unless SAFE_COMMANDS.include?(base_command)
           approval_handler = context[:approval_handler]
           unless approval_handler.request_bash_approval(command, base_command, SAFE_COMMANDS)
-            raise ToolError,
-                  "USER CANCELLED: The user declined to execute '#{base_command}'. Do not retry this command. Either use a whitelisted command (#{SAFE_COMMANDS.join(", ")}) or call 'done' to finish."
+            safe_list = SAFE_COMMANDS.join(", ")
+            message = "USER CANCELLED: The user declined to execute '#{base_command}'. " \
+                      "Do not retry this command. Either use a whitelisted command (#{safe_list}) " \
+                      "or call 'done' to finish."
+            raise ToolError, message
           end
         end
 

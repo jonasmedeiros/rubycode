@@ -9,22 +9,27 @@ module RubyCode
       def self.build(file_path:, old_string:, new_string:)
         pastel = Pastel.new
 
-        old_lines = old_string.lines.map { |line| pastel.red("  - #{line.chomp}") }
-        new_lines = new_string.lines.map { |line| pastel.green("  + #{line.chomp}") }
-
         [
           "",
           pastel.yellow("━" * 80),
           pastel.bold("Update Operation - Approval Required"),
           "#{pastel.cyan("File:")} #{file_path}",
           pastel.yellow("─" * 80),
-          pastel.red("- REMOVE:"),
-          old_lines.join("\n"),
+          format_removal_section(pastel, old_string),
           "",
-          pastel.green("+ ADD:"),
-          new_lines.join("\n"),
+          format_addition_section(pastel, new_string),
           pastel.yellow("━" * 80)
         ].join("\n")
+      end
+
+      def self.format_removal_section(pastel, old_string)
+        old_lines = old_string.lines.map { |line| pastel.red("  - #{line.chomp}") }
+        [pastel.red("- REMOVE:"), old_lines.join("\n")].join("\n")
+      end
+
+      def self.format_addition_section(pastel, new_string)
+        new_lines = new_string.lines.map { |line| pastel.green("  + #{line.chomp}") }
+        [pastel.green("+ ADD:"), new_lines.join("\n")].join("\n")
       end
     end
   end

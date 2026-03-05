@@ -10,13 +10,13 @@ module RubyCode
     MAX_ITERATIONS = 25
     MAX_TOOL_CALLS = 50
 
-    def initialize(adapter:, history:, config:, system_prompt:, read_files:, tty_prompt: nil)
+    def initialize(adapter:, history:, config:, system_prompt:, options: {})
       @adapter = adapter
       @history = history
       @config = config
       @system_prompt = system_prompt
-      @read_files = read_files
-      @tty_prompt = tty_prompt
+      @read_files = options[:read_files]
+      @tty_prompt = options[:tty_prompt]
       @response_handler = Client::ResponseHandler.new(history: @history, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
       @approval_handler = Client::ApprovalHandler.new(tty_prompt: @tty_prompt, config: @config)
