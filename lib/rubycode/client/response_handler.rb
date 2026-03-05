@@ -7,15 +7,16 @@ module RubyCode
       MAX_ITERATIONS = 25
       MAX_TOOL_CALLS = 50
 
-      def initialize(history:, config:)
-        @history = history
+      def initialize(memory:, config:)
+        @memory = memory
         @config = config
       end
 
       def handle_max_iterations(_iteration)
-        error_msg = "⚠️  Reached maximum iterations (#{MAX_ITERATIONS}). The agent may be stuck in a loop."
-        puts "\n#{error_msg}\n"
-        @history.add_message(role: "assistant", content: error_msg)
+        puts Views::ResponseHandler::MaxIterations.build(max_iterations: MAX_ITERATIONS)
+
+        error_msg = I18n.t("rubycode.errors.max_iterations_reached")
+        @memory.add_message(role: "assistant", content: error_msg)
         error_msg
       end
 
@@ -25,27 +26,34 @@ module RubyCode
           return nil
         end
 
-        puts "\n✅ Agent finished (#{iteration} iterations, #{total_tool_calls} tool calls)\n" unless @config.debug
+        unless @config.debug
+          puts Views::ResponseHandler::CompleteMessage.build(iteration: iteration,
+                                                             total_tool_calls: total_tool_calls)
+        end
         content
       end
 
       def handle_max_tool_calls(content, _total_tool_calls)
-        error_msg = "⚠️  Reached maximum tool calls (#{MAX_TOOL_CALLS}). Stopping to prevent excessive operations."
-        puts "\n#{error_msg}\n"
-        @history.add_message(role: "assistant", content: error_msg)
+        puts Views::ResponseHandler::MaxToolCalls.build(max_tool_calls: MAX_TOOL_CALLS)
+
+        error_msg = I18n.t("rubycode.errors.max_tool_calls_reached")
+        @memory.add_message(role: "assistant", content: error_msg)
         content.empty? ? error_msg : content
       end
 
       def finalize_response(done_result, iteration, total_tool_calls)
-        puts "\n✅ Agent finished (#{iteration} iterations, #{total_tool_calls + 1} tool calls)\n" unless @config.debug
+        unless @config.debug
+          puts Views::ResponseHandler::AgentFinished.build(iteration: iteration,
+                                                           total_tool_calls: total_tool_calls + 1)
+        end
         done_result
       end
 
       private
 
       def inject_tool_reminder(iteration)
-        puts "   ⚠️  No tool calls - injecting reminder (iteration #{iteration})" unless @config.debug
-        @history.add_message(
+        puts Views::ResponseHandler::ToolInjectionWarning.build(iteration: iteration) unless @config.debug
+        @memory.add_message(
           role: "user",
           content: "You MUST call a tool. Do not respond with text. Call search, read, bash, or done tool now."
         )

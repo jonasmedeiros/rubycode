@@ -2,6 +2,7 @@
 
 require_relative "client/response_handler"
 require_relative "client/display_formatter"
+require_relative "client/approval_handler"
 
 module RubyCode
   # Manages the agent loop - iterates until task completion or limits reached
@@ -9,13 +10,16 @@ module RubyCode
     MAX_ITERATIONS = 25
     MAX_TOOL_CALLS = 50
 
-    def initialize(adapter:, history:, config:, system_prompt:)
+    def initialize(adapter:, memory:, config:, system_prompt:, options: {})
       @adapter = adapter
-      @history = history
+      @memory = memory
       @config = config
       @system_prompt = system_prompt
-      @response_handler = Client::ResponseHandler.new(history: @history, config: @config)
+      @read_files = options[:read_files]
+      @tty_prompt = options[:tty_prompt]
+      @response_handler = Client::ResponseHandler.new(memory: @memory, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
+      @approval_handler = Client::ApprovalHandler.new(tty_prompt: @tty_prompt, config: @config)
     end
 
     def run
@@ -47,23 +51,36 @@ module RubyCode
     private
 
     def llm_response
-      messages = @history.to_llm_format
+      puts Views::AgentLoop::ThinkingStatus.build unless @config.debug
+
+      messages = @memory.to_llm_format
       response_body = @adapter.generate(
         messages: messages,
         system: @system_prompt,
         tools: Tools.definitions
       )
 
+      puts Views::AgentLoop::ResponseReceived.build unless @config.debug
+
       assistant_message = response_body["message"]
       content = assistant_message["content"] || ""
       tool_calls = assistant_message["tool_calls"] || []
 
-      @history.add_message(role: "assistant", content: content)
+      @memory.add_message(role: "assistant", content: content)
       [content, tool_calls]
+    rescue AdapterError => e
+      handle_adapter_error(e)
+      [nil, []] # Return empty to continue loop
+    end
+
+    def handle_adapter_error(error)
+      error_msg = I18n.t("rubycode.errors.adapter_failed", error: error.message)
+      puts Views::AgentLoop::AdapterError.build(message: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
     end
 
     def execute_tool_calls(tool_calls, iteration)
-      puts "\n🤖 Iteration #{iteration}: Calling #{tool_calls.length} tool(s)..." unless @config.debug
+      puts Views::AgentLoop::IterationHeader.build(iteration: iteration, tool_calls: tool_calls) unless @config.debug
 
       done_result = nil
       tool_calls.each do |tool_call|
@@ -74,6 +91,8 @@ module RubyCode
           break
         end
       end
+
+      puts Views::AgentLoop::IterationFooter.build unless @config.debug
       done_result
     end
 
@@ -90,7 +109,7 @@ module RubyCode
       return nil unless result
 
       @display_formatter.display_result(result)
-      add_tool_result_to_history(tool_name, result)
+      add_tool_result_to_memory(tool_name, result)
       result
     rescue ToolError, StandardError => e
       # Handle all errors - add to history and continue
@@ -101,13 +120,19 @@ module RubyCode
       arguments.is_a?(Hash) ? arguments : JSON.parse(arguments)
     rescue JSON::ParserError => e
       error_msg = "Error parsing tool arguments: #{e.message}"
-      puts "   ✗ #{error_msg}"
-      @history.add_message(role: "user", content: error_msg)
+      puts Views::AgentLoop::ToolError.build(message: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
       nil
     end
 
     def run_tool(tool_name, params)
-      context = { root_path: @config.root_path }
+      context = {
+        root_path: @config.root_path,
+        read_files: @read_files,
+        tty_prompt: @tty_prompt,
+        approval_handler: @approval_handler,
+        display_formatter: @display_formatter
+      }
       Tools.execute(tool_name: tool_name, params: params, context: context)
     rescue ToolError => e
       # Re-raise tool errors to be caught by execute_tool
@@ -115,19 +140,19 @@ module RubyCode
     rescue StandardError => e
       # Wrap unexpected errors
       error_msg = "Error executing tool: #{e.message}"
-      puts "   ✗ #{error_msg}"
-      @history.add_message(role: "user", content: error_msg)
+      puts Views::AgentLoop::ToolError.build(message: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
       nil
     end
 
-    def add_tool_result_to_history(tool_name, result)
-      @history.add_message(role: "user", content: "Tool '#{tool_name}' result:\n#{result}")
+    def add_tool_result_to_memory(tool_name, result)
+      @memory.add_message(role: "user", content: "Tool '#{tool_name}' result:\n#{result}")
     end
 
     def handle_tool_error(error)
       error_msg = "Error: #{error.message}"
-      puts "   ✗ #{error_msg}"
-      @history.add_message(role: "user", content: error_msg)
+      puts Views::AgentLoop::ToolError.build(message: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
       nil
     end
   end

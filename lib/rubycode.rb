@@ -1,16 +1,19 @@
 # frozen_string_literal: true
 
+require "i18n"
 require_relative "rubycode/version"
 require_relative "rubycode/errors"
 require_relative "rubycode/value_objects"
 require_relative "rubycode/configuration"
-require_relative "rubycode/history"
+require_relative "rubycode/database"
+require_relative "rubycode/models"
 require_relative "rubycode/context_builder"
 require_relative "rubycode/adapters/base"
 require_relative "rubycode/adapters/ollama"
 require_relative "rubycode/tools"
 require_relative "rubycode/agent_loop"
 require_relative "rubycode/client"
+require_relative "rubycode/views"
 
 # Rubycode is a Ruby-native AI coding agent with pluggable LLM adapters
 module RubyCode
@@ -26,4 +29,9 @@ module RubyCode
   def self.config
     self.configuration ||= Configuration.new
   end
+
+  # Configure I18n
+  I18n.load_path += Dir[File.join(__dir__, "..", "config", "locales", "*.yml")]
+  I18n.backend.load_translations
+  I18n.default_locale = :en
 end

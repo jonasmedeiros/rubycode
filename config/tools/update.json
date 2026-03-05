@@ -1,0 +1,25 @@
+{
+  "type": "function",
+  "function": {
+    "name": "update",
+    "description": "Update existing file by replacing old_string with new_string. Auto-reads file if not already read.\n\n- Use this to modify existing files only\n- Will error if file doesn't exist (use 'write' tool instead)\n- Automatically reads file if not already read in this conversation\n- Requires exact unique string match for safe replacement\n- Requires user approval before updating\n- Shows colored diff (red for removed, green for added) before applying\n- old_string must appear exactly once in the file",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "description": "Path to file to update (relative or absolute)"
+        },
+        "old_string": {
+          "type": "string",
+          "description": "Exact string to replace (including whitespace)"
+        },
+        "new_string": {
+          "type": "string",
+          "description": "Replacement string"
+        }
+      },
+      "required": ["file_path", "old_string", "new_string"]
+    }
+  }
+}

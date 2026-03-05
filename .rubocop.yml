@@ -8,6 +8,10 @@ Style/StringLiterals:
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
 
+Style/OneClassPerFile:
+  Exclude:
+    - "test/**/*"
+
 # Metrics - reasonable limits for maintainability
 Metrics/ClassLength:
   Max: 200

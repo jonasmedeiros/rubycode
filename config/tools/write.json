@@ -1,0 +1,21 @@
+{
+  "type": "function",
+  "function": {
+    "name": "write",
+    "description": "Create a new file with content. File must not exist. Use 'update' for existing files.\n\n- Use this to create brand new files only\n- Will error if file already exists (use 'update' tool instead)\n- Requires user approval before writing\n- Shows preview of content before creating file\n- Automatically creates parent directories if needed",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "description": "Path to new file (relative or absolute)"
+        },
+        "content": {
+          "type": "string",
+          "description": "Complete file content to write"
+        }
+      },
+      "required": ["file_path", "content"]
+    }
+  }
+}

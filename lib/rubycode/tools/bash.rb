@@ -5,9 +5,8 @@ require "shellwords"
 
 module RubyCode
   module Tools
-    # Tool for executing safe bash commands
+    # Tool for executing bash commands with safety checks and approval workflow
     class Bash < Base
-      # Whitelist of safe commands
       SAFE_COMMANDS = %w[
         ls
         pwd
@@ -30,13 +29,17 @@ module RubyCode
         command = params["command"].strip
         base_command = command.split.first
 
-        raise UnsafeCommandError, safe_command_error(base_command) unless SAFE_COMMANDS.include?(base_command)
+        unless SAFE_COMMANDS.include?(base_command)
+          approval_handler = context[:approval_handler]
+          unless approval_handler.request_bash_approval(command, base_command, SAFE_COMMANDS)
+            message = I18n.t("rubycode.errors.user_cancelled_bash",
+                             command: base_command,
+                             safe_commands: SAFE_COMMANDS.join(", "))
+            raise ToolError, message
+          end
+        end
 
         execute_command(command)
-      end
-
-      def safe_command_error(base_command)
-        "Command '#{base_command}' is not allowed. Safe commands: #{SAFE_COMMANDS.join(", ")}"
       end
 
       def execute_command(command)

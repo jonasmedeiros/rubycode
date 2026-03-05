@@ -2,13 +2,13 @@
   "type": "function",
   "function": {
     "name": "done",
-    "description": "Call this when you have found the code and are ready to provide your final answer. This signals you are finished exploring.",
+    "description": "CRITICAL: Call this tool when you have completed the user's request and are ready to finish.\n\nYou MUST call 'done' after:\n- Successfully making code changes (write/update operations)\n- Answering a question or providing information\n- Completing any task the user requested\n- Unable to proceed further\n\nDo NOT continue calling other tools after the task is complete - call 'done' immediately.\n\nThe 'answer' parameter should contain:\n- For code changes: Summary of what was changed and where\n- For questions: Direct answer to the user's question\n- For searches: What you found and relevant file locations",
     "parameters": {
       "type": "object",
       "properties": {
         "answer": {
           "type": "string",
-          "description": "Your final answer showing the file, line number, current code, and suggested change"
+          "description": "Your final response to the user summarizing what was accomplished or found"
         }
       },
       "required": ["answer"]
