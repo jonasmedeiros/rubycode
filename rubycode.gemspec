@@ -38,7 +38,8 @@ Gem::Specification.new do |spec|
   # I18n for internationalization
   spec.add_dependency "i18n", "~> 1.14"
 
-  # SQLite for persistent conversation memory
+  # Sequel ORM for persistent conversation memory
+  spec.add_dependency "sequel", "~> 5.87"
   spec.add_dependency "sqlite3", "~> 2.4"
 
   # TTY toolkit dependencies for enhanced CLI

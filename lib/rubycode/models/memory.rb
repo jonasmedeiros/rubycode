@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require "sqlite3"
+require "sequel"
 require "fileutils"
 
 module RubyCode
-  # Manages conversation memory using SQLite for persistence
+  # Manages conversation memory using Sequel ORM with SQLite backend
   class Memory
-    attr_reader :db_path
+    attr_reader :db_path, :db
 
     def initialize(db_path: nil)
       @db_path = db_path || default_db_path
@@ -25,8 +25,8 @@ module RubyCode
     end
 
     def messages
-      @db.execute("SELECT role, content FROM messages ORDER BY id ASC").map do |row|
-        Message.new(role: row[0], content: row[1])
+      @db[:messages].order(:id).map do |row|
+        Message.new(role: row[:role], content: row[:content])
       end
     end
 
@@ -35,25 +35,25 @@ module RubyCode
     end
 
     def clear
-      @db.execute("DELETE FROM messages")
+      @db[:messages].delete
     end
 
     def last_user_message
-      row = @db.get_first_row("SELECT role, content FROM messages WHERE role = 'user' ORDER BY id DESC LIMIT 1")
+      row = @db[:messages].where(role: "user").order(Sequel.desc(:id)).first
       return nil unless row
 
-      Message.new(role: row[0], content: row[1])
+      Message.new(role: row[:role], content: row[:content])
     end
 
     def last_assistant_message
-      row = @db.get_first_row("SELECT role, content FROM messages WHERE role = 'assistant' ORDER BY id DESC LIMIT 1")
+      row = @db[:messages].where(role: "assistant").order(Sequel.desc(:id)).first
       return nil unless row
 
-      Message.new(role: row[0], content: row[1])
+      Message.new(role: row[:role], content: row[:content])
     end
 
     def close
-      @db&.close
+      @db&.disconnect
     end
 
     private
@@ -65,23 +65,21 @@ module RubyCode
     end
 
     def setup_database
-      @db = SQLite3::Database.new(@db_path)
+      @db = Sequel.sqlite(@db_path)
       create_tables
     end
 
     def create_tables
-      @db.execute <<-SQL
-        CREATE TABLE IF NOT EXISTS messages (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          role TEXT NOT NULL,
-          content TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      SQL
+      @db.create_table? :messages do
+        primary_key :id
+        String :role, null: false
+        String :content, null: false, text: true
+        DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+      end
     end
 
     def insert_message(role, content)
-      @db.execute("INSERT INTO messages (role, content) VALUES (?, ?)", [role, content])
+      @db[:messages].insert(role: role, content: content)
     end
   end
 end

@@ -4,6 +4,7 @@ PATH
     rubycode (0.1.2)
       i18n (~> 1.14)
       pastel (~> 0.8)
+      sequel (~> 5.87)
       sqlite3 (~> 2.4)
       tty-box (~> 0.7)
       tty-logger (~> 0.6)
@@ -85,6 +86,8 @@ GEM
       parser (>= 3.3.7.2)
       prism (~> 1.7)
     ruby-progressbar (1.13.0)
+    sequel (5.102.0)
+      bigdecimal
     sqlite3 (2.9.1-arm64-darwin)
     stringio (3.2.0)
     strings (0.2.1)
