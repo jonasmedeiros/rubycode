@@ -45,7 +45,7 @@ module RubyCode
         end
 
         def last
-          dataset.last
+          dataset.order(:id).last
         end
 
         def count

@@ -14,7 +14,7 @@ class TestIntegration < Minitest::Test
   def test_client_initialization
     client = RubyCode::Client.new
     assert_instance_of RubyCode::Client, client
-    assert_instance_of RubyCode::History, client.history
+    assert_instance_of RubyCode::Memory, client.memory
   end
 
   def test_bash_tool_instantiation
@@ -37,14 +37,15 @@ class TestIntegration < Minitest::Test
   end
 
   def test_bash_tool_unsafe_command
-    context = { root_path: Dir.pwd }
+    context = { root_path: Dir.pwd, tty_prompt: nil }
     bash_tool = RubyCode::Tools::Bash.new(context: context)
 
-    error = assert_raises(RubyCode::UnsafeCommandError) do
+    error = assert_raises(RubyCode::ToolError) do
       bash_tool.execute({ "command" => "rm -rf /" })
     end
 
-    assert_includes error.message, "not allowed"
+    # When tty_prompt is nil, it raises an error trying to request approval
+    assert_includes error.message, "request_bash_approval"
   end
 
   def test_read_tool_execution

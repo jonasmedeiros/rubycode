@@ -18,11 +18,11 @@ class TestRubycode < Minitest::Test
   def test_client_can_be_instantiated
     client = RubyCode::Client.new
     refute_nil client
-    refute_nil client.history
+    refute_nil client.memory
   end
 
   def test_tools_are_available
-    assert_equal 4, RubyCode::Tools::TOOLS.length
+    assert_equal 6, RubyCode::Tools::TOOLS.length
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Bash
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Read
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Search
