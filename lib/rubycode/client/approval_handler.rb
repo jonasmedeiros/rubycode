@@ -56,7 +56,11 @@ module RubyCode
       private
 
       def request_approval(question)
-        prompt = @prompt || TTY::Prompt.new(input: $stdin, output: $stdout)
+        # Flush output to ensure prompt is visible
+        $stdout.flush
+
+        # Always create a fresh prompt instance to ensure stdin is available
+        prompt = TTY::Prompt.new(input: $stdin, output: $stdout, interrupt: :exit)
         prompt.yes?(question) do |q|
           q.default false
         end
