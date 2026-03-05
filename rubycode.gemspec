@@ -9,7 +9,9 @@ Gem::Specification.new do |spec|
   spec.email         = ["jonas.g.medeiros@gmail.com"]
 
   spec.summary       = "AI coding assistant with autonomous task execution"
-  spec.description   = "Ruby-native AI coding agent with pluggable LLM adapters, persistent memory, and file editing tools. Features automatic retry logic, SQLite-backed conversation history, and user approval workflows for file modifications."
+  spec.description   = "Ruby-native AI coding agent with pluggable LLM adapters, persistent memory, " \
+                       "and file editing tools. Features automatic retry logic, SQLite-backed " \
+                       "conversation history, and user approval workflows for file modifications."
   spec.homepage      = "https://github.com/jonasmedeiros/rubycode"
   spec.license       = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
