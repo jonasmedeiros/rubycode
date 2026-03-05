@@ -7,9 +7,7 @@ require "pastel"
 
 module RubyCode
   module Tools
-    # Tool for executing safe bash commands
     class Bash < Base
-      # Whitelist of safe commands
       SAFE_COMMANDS = %w[
         ls
         pwd
@@ -32,9 +30,7 @@ module RubyCode
         command = params["command"].strip
         base_command = command.split.first
 
-        # Check if command is whitelisted
         unless SAFE_COMMANDS.include?(base_command)
-          # Request user approval for non-whitelisted command
           unless request_approval(command, base_command)
             raise ToolError, "USER CANCELLED: The user declined to execute '#{base_command}'. Do not retry this command. Either use a whitelisted command (#{SAFE_COMMANDS.join(", ")}) or call 'done' to finish."
           end
@@ -47,7 +43,6 @@ module RubyCode
         pastel = Pastel.new
         prompt = TTY::Prompt.new
 
-        # Show warning
         puts "\n#{pastel.red("━" * 80)}"
         puts pastel.bold.red("⚠ WARNING: Non-Whitelisted Command")
         puts "#{pastel.cyan("Command:")} #{command}"
@@ -59,7 +54,6 @@ module RubyCode
         puts pastel.yellow("⚠ Only approve if you trust this command will not cause harm")
         puts pastel.red("━" * 80)
 
-        # Ask for approval
         approved = prompt.yes?("Execute this command?") do |q|
           q.default false
         end
