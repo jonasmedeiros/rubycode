@@ -2,7 +2,6 @@
 
 require "json"
 require "pastel"
-require "tty-table"
 
 module RubyCode
   class Client
@@ -23,8 +22,7 @@ module RubyCode
 
       def display_tool_info(tool_name, arguments)
         if @config.debug
-          puts "\n#{@pastel.yellow("[TOOL]")} #{tool_name}"
-          puts "   #{@pastel.dim("Args:")} #{arguments.inspect}"
+          puts Views::Formatter::DebugToolInfo.build(tool_name: tool_name, arguments: arguments)
         else
           display_minimal_tool_info(tool_name, arguments)
         end
@@ -33,13 +31,11 @@ module RubyCode
       def display_result(result)
         return unless @config.debug
 
-        first_line = result.lines.first&.strip || "(empty)"
-        suffix = result.lines.count > 1 ? "... (#{result.lines.count} lines)" : ""
-        puts "   #{@pastel.green("✓")} #{@pastel.dim("Result:")} #{first_line}#{suffix}"
+        puts Views::Formatter::ToolResult.build(result: result)
       end
 
       def display_info(message)
-        puts "   #{@pastel.dim("ℹ #{message}")}"
+        puts Views::Formatter::InfoMessage.build(message: message)
       end
 
       def display_skip_notification(_tool_name, detail)
@@ -55,14 +51,10 @@ module RubyCode
         value = extract_argument_value(arguments, key)
         return unless value
 
-        # Table for structured display
-        table = TTY::Table.new(rows: [
-                                 [
-                                   @pastel.cyan(label),
-                                   truncate_value(value, 60)
-                                 ]
-                               ])
-        puts "  #{table.render(:basic, padding: [0, 1])}"
+        puts Views::Formatter::MinimalToolInfo.build(
+          label: label,
+          value: truncate_value(value, 60)
+        )
       end
 
       def truncate_value(value, max_length)
