@@ -5,31 +5,31 @@ require "set"
 module RubyCode
   # Main client that provides the public API for the agent
   class Client
-    attr_reader :history
+    attr_reader :memory
 
     def initialize(tty_prompt: nil)
       @config = RubyCode.config
       @adapter = build_adapter
-      @history = History.new
+      @memory = Memory.new
       @read_files = Set.new
       @tty_prompt = tty_prompt
     end
 
     def ask(prompt:)
-      @history.add_message(role: "user", content: prompt)
+      @memory.add_message(role: "user", content: prompt)
       system_prompt = build_system_prompt
 
       AgentLoop.new(
         adapter: @adapter,
-        history: @history,
+        memory: @memory,
         config: @config,
         system_prompt: system_prompt,
         options: { read_files: @read_files, tty_prompt: @tty_prompt }
       ).run
     end
 
-    def clear_history
-      @history.clear
+    def clear_memory
+      @memory.clear
       @read_files.clear
     end
 

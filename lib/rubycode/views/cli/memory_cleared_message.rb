@@ -5,11 +5,11 @@ require "pastel"
 module RubyCode
   module Views
     module Cli
-      # Builds history cleared confirmation message
-      class HistoryClearedMessage
+      # Builds memory cleared confirmation message
+      class MemoryClearedMessage
         def self.build
           pastel = Pastel.new
-          "#{pastel.yellow("✓")} History cleared!"
+          "#{pastel.yellow("✓")} #{I18n.t("rubycode.cli.memory_cleared")}"
         end
       end
     end

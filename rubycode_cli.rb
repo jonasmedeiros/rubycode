@@ -62,8 +62,8 @@ loop do
     puts RubyCode::Views::Cli::ExitMessage.build
     break
   when "clear"
-    client.clear_history
-    puts RubyCode::Views::Cli::HistoryClearedMessage.build
+    client.clear_memory
+    puts RubyCode::Views::Cli::MemoryClearedMessage.build
     next
   end
 

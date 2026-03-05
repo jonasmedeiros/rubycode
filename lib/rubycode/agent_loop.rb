@@ -10,14 +10,14 @@ module RubyCode
     MAX_ITERATIONS = 25
     MAX_TOOL_CALLS = 50
 
-    def initialize(adapter:, history:, config:, system_prompt:, options: {})
+    def initialize(adapter:, memory:, config:, system_prompt:, options: {})
       @adapter = adapter
-      @history = history
+      @memory = memory
       @config = config
       @system_prompt = system_prompt
       @read_files = options[:read_files]
       @tty_prompt = options[:tty_prompt]
-      @response_handler = Client::ResponseHandler.new(history: @history, config: @config)
+      @response_handler = Client::ResponseHandler.new(memory: @memory, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
       @approval_handler = Client::ApprovalHandler.new(tty_prompt: @tty_prompt, config: @config)
     end
@@ -53,7 +53,7 @@ module RubyCode
     def llm_response
       puts Views::AgentLoop::ThinkingStatus.build unless @config.debug
 
-      messages = @history.to_llm_format
+      messages = @memory.to_llm_format
       response_body = @adapter.generate(
         messages: messages,
         system: @system_prompt,
@@ -66,7 +66,7 @@ module RubyCode
       content = assistant_message["content"] || ""
       tool_calls = assistant_message["tool_calls"] || []
 
-      @history.add_message(role: "assistant", content: content)
+      @memory.add_message(role: "assistant", content: content)
       [content, tool_calls]
     end
 
@@ -100,7 +100,7 @@ module RubyCode
       return nil unless result
 
       @display_formatter.display_result(result)
-      add_tool_result_to_history(tool_name, result)
+      add_tool_result_to_memory(tool_name, result)
       result
     rescue ToolError, StandardError => e
       # Handle all errors - add to history and continue
@@ -112,7 +112,7 @@ module RubyCode
     rescue JSON::ParserError => e
       error_msg = "Error parsing tool arguments: #{e.message}"
       puts Views::AgentLoop::ToolError.build(message: error_msg)
-      @history.add_message(role: "user", content: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
       nil
     end
 
@@ -132,18 +132,18 @@ module RubyCode
       # Wrap unexpected errors
       error_msg = "Error executing tool: #{e.message}"
       puts Views::AgentLoop::ToolError.build(message: error_msg)
-      @history.add_message(role: "user", content: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
       nil
     end
 
-    def add_tool_result_to_history(tool_name, result)
-      @history.add_message(role: "user", content: "Tool '#{tool_name}' result:\n#{result}")
+    def add_tool_result_to_memory(tool_name, result)
+      @memory.add_message(role: "user", content: "Tool '#{tool_name}' result:\n#{result}")
     end
 
     def handle_tool_error(error)
       error_msg = "Error: #{error.message}"
       puts Views::AgentLoop::ToolError.build(message: error_msg)
-      @history.add_message(role: "user", content: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
       nil
     end
   end

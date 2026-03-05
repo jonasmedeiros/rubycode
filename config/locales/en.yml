@@ -3,7 +3,7 @@ en:
     cli:
       ready: "Ready! You can now ask questions or request code changes."
       exit: "Goodbye!"
-      history_cleared: "History cleared"
+      memory_cleared: "Memory cleared"
       interrupted: "Operation cancelled by user"
 
     welcome:

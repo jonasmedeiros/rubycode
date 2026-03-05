@@ -38,6 +38,9 @@ Gem::Specification.new do |spec|
   # I18n for internationalization
   spec.add_dependency "i18n", "~> 1.14"
 
+  # SQLite for persistent conversation memory
+  spec.add_dependency "sqlite3", "~> 2.4"
+
   # TTY toolkit dependencies for enhanced CLI
   spec.add_dependency "pastel", "~> 0.8"
   spec.add_dependency "tty-box", "~> 0.7"

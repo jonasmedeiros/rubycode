@@ -7,8 +7,8 @@ module RubyCode
       MAX_ITERATIONS = 25
       MAX_TOOL_CALLS = 50
 
-      def initialize(history:, config:)
-        @history = history
+      def initialize(memory:, config:)
+        @memory = memory
         @config = config
       end
 
@@ -16,7 +16,7 @@ module RubyCode
         puts Views::ResponseHandler::MaxIterations.build(max_iterations: MAX_ITERATIONS)
 
         error_msg = "Reached maximum iterations"
-        @history.add_message(role: "assistant", content: error_msg)
+        @memory.add_message(role: "assistant", content: error_msg)
         error_msg
       end
 
@@ -37,7 +37,7 @@ module RubyCode
         puts Views::ResponseHandler::MaxToolCalls.build(max_tool_calls: MAX_TOOL_CALLS)
 
         error_msg = "Reached maximum tool calls"
-        @history.add_message(role: "assistant", content: error_msg)
+        @memory.add_message(role: "assistant", content: error_msg)
         content.empty? ? error_msg : content
       end
 
@@ -53,7 +53,7 @@ module RubyCode
 
       def inject_tool_reminder(iteration)
         puts Views::ResponseHandler::ToolInjectionWarning.build(iteration: iteration) unless @config.debug
-        @history.add_message(
+        @memory.add_message(
           role: "user",
           content: "You MUST call a tool. Do not respond with text. Call search, read, bash, or done tool now."
         )
