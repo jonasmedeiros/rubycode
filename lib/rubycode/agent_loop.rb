@@ -71,9 +71,7 @@ module RubyCode
     end
 
     def execute_tool_calls(tool_calls, iteration)
-      unless @config.debug
-        puts Views::AgentLoop::IterationHeader.build(iteration: iteration, tool_calls: tool_calls)
-      end
+      puts Views::AgentLoop::IterationHeader.build(iteration: iteration, tool_calls: tool_calls) unless @config.debug
 
       done_result = nil
       tool_calls.each do |tool_call|

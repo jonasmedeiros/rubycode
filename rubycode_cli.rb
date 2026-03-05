@@ -32,7 +32,7 @@ end
 RubyCode.configure do |config|
   config.adapter = adapter
   config.url = url
-  config.model = model 
+  config.model = model
   config.root_path = full_path
   config.debug = debug_mode
 
@@ -50,7 +50,11 @@ client = RubyCode::Client.new(tty_prompt: prompt)
 puts RubyCode::Views::Cli::ReadyMessage.build
 
 loop do
-  user_input = prompt.ask("You: ") rescue nil
+  user_input = begin
+    prompt.ask("You: ")
+  rescue StandardError
+    nil
+  end
   break if user_input.nil?
 
   case user_input.strip.downcase
