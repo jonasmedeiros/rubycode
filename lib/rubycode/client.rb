@@ -40,7 +40,7 @@ module RubyCode
       when :ollama
         Adapters::Ollama.new(@config)
       else
-        raise "Unknown Adapter"
+        raise I18n.t("rubycode.errors.unknown_adapter")
       end
     end
 

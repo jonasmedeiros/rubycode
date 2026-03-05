@@ -25,7 +25,7 @@ module RubyCode
       end
 
       def validate_file_exists(file_path, full_path)
-        raise FileNotFoundError, "File '#{file_path}' not found" unless File.exist?(full_path)
+        raise FileNotFoundError, I18n.t("rubycode.errors.file_not_found", path: file_path) unless File.exist?(full_path)
       end
 
       def auto_read_file_if_needed(full_path)
@@ -39,23 +39,21 @@ module RubyCode
       def validate_string_match(content, old_string)
         return if content.include?(old_string)
 
-        raise ToolError, "String not found in file. Searched for:\n#{old_string[0..100]}..."
+        raise ToolError, I18n.t("rubycode.errors.string_not_found", string: old_string[0..100])
       end
 
       def validate_uniqueness(content, old_string)
         occurrences = content.scan(old_string).count
         return if occurrences == 1
 
-        raise ToolError, "String appears #{occurrences} times. Must be unique for safe replacement."
+        raise ToolError, I18n.t("rubycode.errors.string_not_unique", count: occurrences)
       end
 
       def request_approval(file_path, old_string, new_string)
         approval_handler = context[:approval_handler]
         return if approval_handler.request_update_approval(file_path, old_string, new_string)
 
-        message = "USER CANCELLED: The user declined this change. Do not retry this exact update. " \
-                  "Either move to the next change or call 'done' to finish."
-        raise ToolError, message
+        raise ToolError, I18n.t("rubycode.errors.user_cancelled_update")
       end
 
       def update_file(full_path, content, old_string, new_string)

@@ -32,10 +32,9 @@ module RubyCode
         unless SAFE_COMMANDS.include?(base_command)
           approval_handler = context[:approval_handler]
           unless approval_handler.request_bash_approval(command, base_command, SAFE_COMMANDS)
-            safe_list = SAFE_COMMANDS.join(", ")
-            message = "USER CANCELLED: The user declined to execute '#{base_command}'. " \
-                      "Do not retry this command. Either use a whitelisted command (#{safe_list}) " \
-                      "or call 'done' to finish."
+            message = I18n.t("rubycode.errors.user_cancelled_bash",
+                             command: base_command,
+                             safe_commands: SAFE_COMMANDS.join(", "))
             raise ToolError, message
           end
         end

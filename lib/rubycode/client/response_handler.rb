@@ -15,7 +15,7 @@ module RubyCode
       def handle_max_iterations(_iteration)
         puts Views::ResponseHandler::MaxIterations.build(max_iterations: MAX_ITERATIONS)
 
-        error_msg = "Reached maximum iterations"
+        error_msg = I18n.t("rubycode.errors.max_iterations_reached")
         @memory.add_message(role: "assistant", content: error_msg)
         error_msg
       end
@@ -36,7 +36,7 @@ module RubyCode
       def handle_max_tool_calls(content, _total_tool_calls)
         puts Views::ResponseHandler::MaxToolCalls.build(max_tool_calls: MAX_TOOL_CALLS)
 
-        error_msg = "Reached maximum tool calls"
+        error_msg = I18n.t("rubycode.errors.max_tool_calls_reached")
         @memory.add_message(role: "assistant", content: error_msg)
         content.empty? ? error_msg : content
       end

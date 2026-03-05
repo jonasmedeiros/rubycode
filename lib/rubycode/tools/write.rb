@@ -22,16 +22,14 @@ module RubyCode
       def validate_file_does_not_exist(file_path, full_path)
         return unless File.exist?(full_path)
 
-        raise ToolError, "File '#{file_path}' already exists. Use 'update' tool to modify it."
+        raise ToolError, I18n.t("rubycode.errors.file_exists", path: file_path)
       end
 
       def request_approval(file_path, content)
         approval_handler = context[:approval_handler]
         return if approval_handler.request_write_approval(file_path, content)
 
-        message = "USER CANCELLED: The user declined to create this file. Do not retry this operation. " \
-                  "Ask the user if they want to make a different change or call 'done' to finish."
-        raise ToolError, message
+        raise ToolError, I18n.t("rubycode.errors.user_cancelled_write")
       end
 
       def create_file(full_path, content)
