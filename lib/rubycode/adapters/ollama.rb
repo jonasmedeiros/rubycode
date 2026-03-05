@@ -14,7 +14,7 @@ module RubyCode
 
         debug_request(uri, payload) if @config.debug
 
-        body = send_request(uri, request)
+        body = send_request_with_retry(uri, request)
 
         debug_response(body) if @config.debug
 
@@ -22,6 +22,33 @@ module RubyCode
       end
 
       private
+
+      def send_request_with_retry(uri, request)
+        attempt = 0
+
+        begin
+          attempt += 1
+          send_request(uri, request)
+        rescue AdapterTimeoutError, AdapterConnectionError => e
+          unless attempt <= @config.max_retries
+            raise AdapterRetryExhaustedError, "Failed after #{@config.max_retries} retries: #{e.message}"
+          end
+
+          delay = @config.retry_base_delay * (2**(attempt - 1))
+          display_retry_status(attempt, @config.max_retries, delay, e)
+          sleep(delay)
+          retry
+        end
+      end
+
+      def display_retry_status(attempt, max_retries, delay, error)
+        puts Views::AgentLoop::RetryStatus.build(
+          attempt: attempt,
+          max_retries: max_retries,
+          delay: delay,
+          error: error.message
+        )
+      end
 
       def build_payload(messages, system, tools)
         payload = { model: @config.model, messages: messages, stream: false }
@@ -38,8 +65,54 @@ module RubyCode
       end
 
       def send_request(uri, request)
-        response = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(request) }
-        JSON.parse(response.body)
+        response = perform_http_request(uri, request)
+        handle_response(response)
+      rescue Net::ReadTimeout, Net::OpenTimeout, Errno::ECONNREFUSED, Errno::ETIMEDOUT, SocketError => e
+        handle_network_error(e, uri)
+      rescue JSON::ParserError => e
+        raise AdapterError, "Invalid JSON response from server: #{e.message}"
+      rescue StandardError => e
+        raise AdapterError, "Unexpected error: #{e.message}"
+      end
+
+      def perform_http_request(uri, request)
+        Net::HTTP.start(
+          uri.hostname,
+          uri.port,
+          read_timeout: @config.http_read_timeout,
+          open_timeout: @config.http_open_timeout
+        ) { |http| http.request(request) }
+      end
+
+      def handle_network_error(error, uri)
+        case error
+        when Net::ReadTimeout
+          raise AdapterTimeoutError, "Request timed out after #{@config.http_read_timeout}s: #{error.message}"
+        when Net::OpenTimeout
+          raise AdapterTimeoutError, "Connection timed out after #{@config.http_open_timeout}s: #{error.message}"
+        when Errno::ECONNREFUSED
+          raise AdapterConnectionError, "Connection refused to #{uri}: #{error.message}"
+        when Errno::ETIMEDOUT
+          raise AdapterConnectionError, "Connection timed out to #{uri}: #{error.message}"
+        when SocketError
+          raise AdapterConnectionError, "Cannot resolve host #{uri.hostname}: #{error.message}"
+        end
+      end
+
+      def handle_response(response)
+        body = JSON.parse(response.body)
+
+        # Check for HTTP errors
+        case response.code.to_i
+        when 200..299
+          body
+        when 500..599
+          # Server errors are retriable
+          raise AdapterConnectionError, "Server error (#{response.code}): #{response.message}"
+        else
+          # Client errors are not retriable
+          raise AdapterError, "HTTP error (#{response.code}): #{response.message}"
+        end
       end
 
       def debug_request(uri, payload)

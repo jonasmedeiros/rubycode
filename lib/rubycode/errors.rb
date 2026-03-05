@@ -18,4 +18,16 @@ module RubyCode
 
   # Raised when command execution fails
   class CommandExecutionError < ToolError; end
+
+  # Base class for all adapter-related errors
+  class AdapterError < Error; end
+
+  # Raised when adapter request times out
+  class AdapterTimeoutError < AdapterError; end
+
+  # Raised when adapter cannot connect to server
+  class AdapterConnectionError < AdapterError; end
+
+  # Raised when all retry attempts are exhausted
+  class AdapterRetryExhaustedError < AdapterError; end
 end

@@ -81,3 +81,7 @@ en:
       user_cancelled_write: "USER CANCELLED: The user declined to create this file. Do not retry this operation. Ask the user if they want to make a different change or call 'done' to finish."
       max_iterations_reached: "Reached maximum iterations"
       max_tool_calls_reached: "Reached maximum tool calls"
+      adapter_timeout: "LLM request timed out after %{timeout}s"
+      adapter_connection: "Cannot connect to LLM at %{url}: %{error}"
+      adapter_retry: "Request failed: %{error}. Retrying in %{delay}s... (attempt %{attempt}/%{max_retries})"
+      adapter_failed: "LLM adapter failed: %{error}"

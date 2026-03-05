@@ -68,6 +68,15 @@ module RubyCode
 
       @memory.add_message(role: "assistant", content: content)
       [content, tool_calls]
+    rescue AdapterError => e
+      handle_adapter_error(e)
+      [nil, []] # Return empty to continue loop
+    end
+
+    def handle_adapter_error(error)
+      error_msg = I18n.t("rubycode.errors.adapter_failed", error: error.message)
+      puts Views::AgentLoop::AdapterError.build(message: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
     end
 
     def execute_tool_calls(tool_calls, iteration)

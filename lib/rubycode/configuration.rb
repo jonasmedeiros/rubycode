@@ -3,7 +3,8 @@
 module RubyCode
   # Configuration class for Rubycode settings
   class Configuration
-    attr_accessor :adapter, :url, :model, :root_path, :debug, :enable_tool_injection_workaround
+    attr_accessor :adapter, :url, :model, :root_path, :debug, :enable_tool_injection_workaround,
+                  :http_read_timeout, :http_open_timeout, :max_retries, :retry_base_delay
 
     def initialize
       @adapter = :ollama
@@ -16,6 +17,12 @@ module RubyCode
       # When enabled, injects reminder messages if model generates text instead of calling tools
       # Enabled by default as most models need this nudge
       @enable_tool_injection_workaround = true
+
+      # HTTP timeout and retry configuration
+      @http_read_timeout = 120 # 2 minutes for LLM inference
+      @http_open_timeout = 10  # 10 seconds for connection
+      @max_retries = 3         # Number of retries (4 total attempts)
+      @retry_base_delay = 2.0  # Base delay for exponential backoff
     end
   end
 end
