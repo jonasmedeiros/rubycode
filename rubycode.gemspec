@@ -34,4 +34,15 @@ Gem::Specification.new do |spec|
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
+
+  # TTY toolkit dependencies for enhanced CLI
+  spec.add_dependency "tty-prompt", "~> 0.23"
+  spec.add_dependency "tty-box", "~> 0.7"
+  spec.add_dependency "tty-progressbar", "~> 0.18"
+  spec.add_dependency "tty-pager", "~> 0.14"
+  spec.add_dependency "tty-table", "~> 0.12"
+  spec.add_dependency "tty-spinner", "~> 0.9"
+  spec.add_dependency "tty-markdown", "~> 0.7"
+  spec.add_dependency "tty-logger", "~> 0.6"
+  spec.add_dependency "pastel", "~> 0.8"
 end

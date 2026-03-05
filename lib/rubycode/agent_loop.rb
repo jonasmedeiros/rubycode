@@ -2,6 +2,7 @@
 
 require_relative "client/response_handler"
 require_relative "client/display_formatter"
+require "pastel"
 
 module RubyCode
   # Manages the agent loop - iterates until task completion or limits reached
@@ -16,6 +17,7 @@ module RubyCode
       @system_prompt = system_prompt
       @response_handler = Client::ResponseHandler.new(history: @history, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
+      @pastel = Pastel.new
     end
 
     def run
@@ -47,12 +49,17 @@ module RubyCode
     private
 
     def llm_response
+      # Simple log message instead of animated spinner
+      puts "#{@pastel.dim("→")} Thinking..." unless @config.debug
+
       messages = @history.to_llm_format
       response_body = @adapter.generate(
         messages: messages,
         system: @system_prompt,
         tools: Tools.definitions
       )
+
+      puts "#{@pastel.green("✓")} Response received" unless @config.debug
 
       assistant_message = response_body["message"]
       content = assistant_message["content"] || ""
@@ -63,7 +70,16 @@ module RubyCode
     end
 
     def execute_tool_calls(tool_calls, iteration)
-      puts "\n🤖 Iteration #{iteration}: Calling #{tool_calls.length} tool(s)..." unless @config.debug
+      unless @config.debug
+        # Header with border
+        puts "#{@pastel.cyan("┌─ Iteration #{iteration} ─────────────────────────")}"
+
+        # Show tool list
+        tool_calls.each_with_index do |tool_call, idx|
+          tool_name = tool_call.dig("function", "name")
+          puts "  #{@pastel.dim("#{idx + 1}.")} #{tool_name}"
+        end
+      end
 
       done_result = nil
       tool_calls.each do |tool_call|
@@ -74,6 +90,8 @@ module RubyCode
           break
         end
       end
+
+      puts "#{@pastel.cyan("└────────────────────────────────────────────────")}" unless @config.debug
       done_result
     end
 

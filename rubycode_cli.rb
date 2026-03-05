@@ -2,31 +2,51 @@
 # frozen_string_literal: true
 
 require_relative "lib/rubycode"
-require "readline"
+require "tty-prompt"
+require "tty-box"
+require "tty-table"
+require "tty-markdown"
+require "pastel"
 
-puts "\n#{"=" * 80}"
-puts "🚀 RubyCode - AI Ruby/Rails Code Assistant"
-puts "=" * 80
+# Initialize TTY components
+prompt = TTY::Prompt.new
+pastel = Pastel.new
+
+# Display welcome panel
+welcome = TTY::Box.frame(
+  width: 80,
+  border: :thick,
+  title: { top_left: " RubyCode v#{RubyCode::VERSION} " }
+) do
+  [
+    pastel.bold.cyan("AI Ruby/Rails Code Assistant"),
+    "",
+    "Built with: #{pastel.dim("Ollama + DeepSeek + TTY Toolkit")}",
+    pastel.dim("─" * 76),
+    "#{pastel.yellow("Commands:")} exit, quit, clear"
+  ].join("\n")
+end
+puts "\n#{welcome}"
 
 # Ask for directory
-print "\nWhat directory do you want to work on? (default: current directory): "
-directory = gets.chomp
-directory = Dir.pwd if directory.empty?
+directory = prompt.ask("What directory do you want to work on?") do |q|
+  q.default Dir.pwd
+  q.required false
+end
+directory = Dir.pwd if directory.nil? || directory.empty?
 
 # Resolve the full path
 full_path = File.expand_path(directory)
 
 unless Dir.exist?(full_path)
-  puts "\n❌ Error: Directory '#{full_path}' does not exist!"
+  puts "\n#{pastel.red("[ERROR]")} Directory '#{full_path}' does not exist!"
   exit 1
 end
 
-puts "\n📁 Working directory: #{full_path}"
-
 # Ask if debug mode should be enabled
-print "Enable debug mode? (shows JSON requests/responses) [y/N]: "
-debug_input = gets.chomp.downcase
-debug_mode = %w[y yes].include?(debug_input)
+debug_mode = prompt.yes?("Enable debug mode?") do |q|
+  q.default false
+end
 
 # Configure the client
 RubyCode.configure do |config|
@@ -40,49 +60,76 @@ RubyCode.configure do |config|
   config.enable_tool_injection_workaround = true
 end
 
-puts "🐛 Debug mode: #{debug_mode ? "ON" : "OFF"}" if debug_mode
+# Display configuration as table
+config_table = TTY::Table.new(
+  header: [pastel.bold("Setting"), pastel.bold("Value")],
+  rows: [
+    ["Directory", full_path],
+    ["Model", "deepseek-v3.1:671b-cloud"],
+    ["Debug Mode", debug_mode ? pastel.green("ON") : pastel.dim("OFF")]
+  ]
+)
+puts "\n#{config_table.render(:unicode, padding: [0, 1])}"
 
 # Create a client
 client = RubyCode::Client.new
 
-puts "\n#{"=" * 80}"
-puts "✨ Agent initialized! You can now ask questions or request code changes."
-puts "   Type 'exit' or 'quit' to exit, 'clear' to clear history"
-puts "=" * 80
+puts "\n#{pastel.green("✓")} #{pastel.bold("Ready!")} You can now ask questions or request code changes."
 
-# Interactive loop
+# Interactive loop with fixed input area at bottom
 loop do
-  print "\n💬 You: "
-  prompt = Readline.readline("", true)
+  # Draw input area border and prompt
+  puts ""
+  puts pastel.dim("─" * 80)
+  print pastel.cyan("You: ")
+
+  user_input = gets&.chomp
 
   # Handle empty input
-  next if prompt.nil? || prompt.strip.empty?
-
-  # Handle commands
-  case prompt.strip.downcase
-  when "exit", "quit"
-    puts "\n👋 Goodbye!"
-    break
-  when "clear"
-    client.clear_history
-    puts "\n🗑️  History cleared!"
+  if user_input.nil? || user_input.strip.empty?
+    # Move up and clear the input area we just drew
+    print "\e[A\e[2K\e[A\e[2K"
     next
   end
 
-  puts "\n#{"-" * 80}"
+  # Move cursor up to content area (above the input border)
+  # This ensures all agent output appears above the input line
+  print "\e[A\e[A" # Move up 2 lines (past "You:" and border)
+  print "\e[2K"    # Clear the border line
+  print "\e[A"     # Move up one more to content area
+  puts ""          # Start fresh line for content
+
+  # Handle commands
+  case user_input.strip.downcase
+  when "exit", "quit"
+    puts "\n#{pastel.green("Goodbye!")}\n"
+    break
+  when "clear"
+    client.clear_history
+    puts "#{pastel.yellow("✓")} History cleared!"
+    next
+  end
 
   begin
-    # Get response from agent
-    response = client.ask(prompt: prompt)
+    # Get response from agent - all output will appear in content area
+    response = client.ask(prompt: user_input)
 
-    puts "\n🤖 Agent:"
-    puts "-" * 80
-    puts response
-    puts "-" * 80
+    # Render response with markdown formatting
+    puts "\n#{pastel.magenta("╔═══ Agent Response ═══")}"
+
+    # Try to parse as markdown, fallback to plain
+    begin
+      rendered = TTY::Markdown.parse(response, width: 80)
+      puts rendered
+    rescue StandardError
+      puts response
+    end
+
+    puts pastel.magenta("╚══════════════════════")
   rescue Interrupt
-    puts "\n\n⚠️  Interrupted! Type 'exit' to quit or continue chatting."
+    puts "\n#{pastel.yellow("[INTERRUPTED]")} Type 'exit' to quit or continue chatting."
   rescue StandardError => e
-    puts "\n❌ Error: #{e.message}"
-    puts e.backtrace.first(3).join("\n")
+    puts "\n#{pastel.red("[ERROR]")} #{e.message}"
+    puts pastel.dim(e.backtrace.first(3).join("\n"))
   end
 end
