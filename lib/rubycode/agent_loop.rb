@@ -3,7 +3,6 @@
 require_relative "client/response_handler"
 require_relative "client/display_formatter"
 require_relative "client/approval_handler"
-require "pastel"
 
 module RubyCode
   # Manages the agent loop - iterates until task completion or limits reached
@@ -21,7 +20,6 @@ module RubyCode
       @response_handler = Client::ResponseHandler.new(history: @history, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
       @approval_handler = Client::ApprovalHandler.new(tty_prompt: @tty_prompt, config: @config)
-      @pastel = Pastel.new
     end
 
     def run
@@ -53,8 +51,7 @@ module RubyCode
     private
 
     def llm_response
-      # Simple log message instead of animated spinner
-      puts "#{@pastel.dim("→")} Thinking..." unless @config.debug
+      puts Views::AgentLoop::ThinkingStatus.build unless @config.debug
 
       messages = @history.to_llm_format
       response_body = @adapter.generate(
@@ -63,7 +60,7 @@ module RubyCode
         tools: Tools.definitions
       )
 
-      puts "#{@pastel.green("✓")} Response received" unless @config.debug
+      puts Views::AgentLoop::ResponseReceived.build unless @config.debug
 
       assistant_message = response_body["message"]
       content = assistant_message["content"] || ""
@@ -75,14 +72,7 @@ module RubyCode
 
     def execute_tool_calls(tool_calls, iteration)
       unless @config.debug
-        # Header with border
-        puts @pastel.cyan("┌─ Iteration #{iteration} ─────────────────────────")
-
-        # Show tool list
-        tool_calls.each_with_index do |tool_call, idx|
-          tool_name = tool_call.dig("function", "name")
-          puts "  #{@pastel.dim("#{idx + 1}.")} #{tool_name}"
-        end
+        puts Views::AgentLoop::IterationHeader.build(iteration: iteration, tool_calls: tool_calls)
       end
 
       done_result = nil
@@ -95,7 +85,7 @@ module RubyCode
         end
       end
 
-      puts @pastel.cyan("└────────────────────────────────────────────────") unless @config.debug
+      puts Views::AgentLoop::IterationFooter.build unless @config.debug
       done_result
     end
 
@@ -123,7 +113,7 @@ module RubyCode
       arguments.is_a?(Hash) ? arguments : JSON.parse(arguments)
     rescue JSON::ParserError => e
       error_msg = "Error parsing tool arguments: #{e.message}"
-      puts "   ✗ #{error_msg}"
+      puts Views::AgentLoop::ToolError.build(message: error_msg)
       @history.add_message(role: "user", content: error_msg)
       nil
     end
@@ -143,7 +133,7 @@ module RubyCode
     rescue StandardError => e
       # Wrap unexpected errors
       error_msg = "Error executing tool: #{e.message}"
-      puts "   ✗ #{error_msg}"
+      puts Views::AgentLoop::ToolError.build(message: error_msg)
       @history.add_message(role: "user", content: error_msg)
       nil
     end
@@ -154,7 +144,7 @@ module RubyCode
 
     def handle_tool_error(error)
       error_msg = "Error: #{error.message}"
-      puts "   ✗ #{error_msg}"
+      puts Views::AgentLoop::ToolError.build(message: error_msg)
       @history.add_message(role: "user", content: error_msg)
       nil
     end

@@ -24,6 +24,11 @@ require_relative "rubycode/views/cli/history_cleared_message"
 require_relative "rubycode/views/cli/response_box"
 require_relative "rubycode/views/cli/interrupt_message"
 require_relative "rubycode/views/cli/error_display"
+require_relative "rubycode/views/agent_loop/thinking_status"
+require_relative "rubycode/views/agent_loop/response_received"
+require_relative "rubycode/views/agent_loop/iteration_header"
+require_relative "rubycode/views/agent_loop/iteration_footer"
+require_relative "rubycode/views/agent_loop/tool_error"
 
 # Rubycode is a Ruby-native AI coding agent with pluggable LLM adapters
 module RubyCode
