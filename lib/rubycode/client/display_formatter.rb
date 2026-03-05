@@ -11,7 +11,9 @@ module RubyCode
       TOOL_LABELS = {
         "bash" => ["[BASH]", "command"],
         "read" => ["[READ]", "file_path"],
-        "search" => ["[SEARCH]", "pattern"]
+        "search" => ["[SEARCH]", "pattern"],
+        "write" => ["[WRITE]", "file_path"],
+        "update" => ["[UPDATE]", "file_path"]
       }.freeze
 
       def initialize(config:)

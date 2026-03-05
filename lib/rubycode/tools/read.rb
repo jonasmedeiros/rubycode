@@ -16,6 +16,9 @@ module RubyCode
 
         return list_directory(full_path, file_path) if File.directory?(full_path)
 
+        # Track that this file was read
+        context[:read_files]&.add(full_path)
+
         format_file_lines(full_path, offset, limit)
       end
 

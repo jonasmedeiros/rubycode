@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "set"
+
 module RubyCode
   # Main client that provides the public API for the agent
   class Client
@@ -9,6 +11,7 @@ module RubyCode
       @config = RubyCode.config
       @adapter = build_adapter
       @history = History.new
+      @read_files = Set.new
     end
 
     def ask(prompt:)
@@ -19,12 +22,14 @@ module RubyCode
         adapter: @adapter,
         history: @history,
         config: @config,
-        system_prompt: system_prompt
+        system_prompt: system_prompt,
+        read_files: @read_files
       ).run
     end
 
     def clear_history
       @history.clear
+      @read_files.clear
     end
 
     private
@@ -50,9 +55,12 @@ module RubyCode
         You MUST call a tool in EVERY response. You MUST NEVER respond with just text.
 
         # Available tools
-        - bash: run any safe command (ls, find, grep, cat, etc.)
+        - bash: run commands (whitelisted commands run directly, others require user approval)
+          Whitelisted: ls, pwd, find, tree, cat, head, tail, wc, file, which, echo, grep, rg
         - search: simplified search (use bash + grep for more control)
         - read: view file contents with line numbers
+        - write: create new files (requires approval, errors if file exists)
+        - update: modify existing files (auto-reads if needed, requires approval)
         - done: call when you have the answer
 
         # Recommended workflow
@@ -60,6 +68,13 @@ module RubyCode
         2. Use bash with find to locate files: `find . -name "*.rb"`
         3. Once found → use read to see the file
         4. When ready → call done with your final answer
+
+        # CRITICAL: Handling user cancellations
+        If you see "USER CANCELLED" in an error message:
+        - The user explicitly declined that specific operation
+        - Do NOT retry the exact same operation - the user has rejected it
+        - Move on to other changes, or call 'done' if there's nothing else to do
+        - Never get stuck in a loop retrying cancelled operations
 
         # Example searches
         - `grep -rn "button" app/views` - search for "button" in views

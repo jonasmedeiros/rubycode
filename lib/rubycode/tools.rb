@@ -4,6 +4,8 @@ require_relative "tools/base"
 require_relative "tools/bash"
 require_relative "tools/read"
 require_relative "tools/search"
+require_relative "tools/write"
+require_relative "tools/update"
 require_relative "tools/done"
 
 module RubyCode
@@ -14,6 +16,8 @@ module RubyCode
       Bash,
       Read,
       Search,
+      Write,
+      Update,
       Done
     ].freeze
 

@@ -2,6 +2,8 @@
 
 require "English"
 require "shellwords"
+require "tty-prompt"
+require "pastel"
 
 module RubyCode
   module Tools
@@ -30,13 +32,43 @@ module RubyCode
         command = params["command"].strip
         base_command = command.split.first
 
-        raise UnsafeCommandError, safe_command_error(base_command) unless SAFE_COMMANDS.include?(base_command)
+        # Check if command is whitelisted
+        unless SAFE_COMMANDS.include?(base_command)
+          # Request user approval for non-whitelisted command
+          unless request_approval(command, base_command)
+            raise ToolError, "USER CANCELLED: The user declined to execute '#{base_command}'. Do not retry this command. Either use a whitelisted command (#{SAFE_COMMANDS.join(", ")}) or call 'done' to finish."
+          end
+        end
 
         execute_command(command)
       end
 
-      def safe_command_error(base_command)
-        "Command '#{base_command}' is not allowed. Safe commands: #{SAFE_COMMANDS.join(", ")}"
+      def request_approval(command, base_command)
+        pastel = Pastel.new
+        prompt = TTY::Prompt.new
+
+        # Show warning
+        puts "\n#{pastel.red("━" * 80)}"
+        puts pastel.bold.red("⚠ WARNING: Non-Whitelisted Command")
+        puts "#{pastel.cyan("Command:")} #{command}"
+        puts "#{pastel.cyan("Base command:")} #{base_command}"
+        puts pastel.red("─" * 80)
+        puts pastel.yellow("This command is not in the safe whitelist:")
+        puts pastel.dim("Safe commands: #{SAFE_COMMANDS.join(", ")}")
+        puts ""
+        puts pastel.yellow("⚠ Only approve if you trust this command will not cause harm")
+        puts pastel.red("━" * 80)
+
+        # Ask for approval
+        approved = prompt.yes?("Execute this command?") do |q|
+          q.default false
+        end
+
+        unless approved
+          puts pastel.yellow("   ⓘ Skipped: User declined to execute '#{base_command}'")
+        end
+
+        approved
       end
 
       def execute_command(command)
