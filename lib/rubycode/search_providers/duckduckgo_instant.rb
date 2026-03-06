@@ -34,7 +34,7 @@ module RubyCode
 
       def make_request(uri)
         Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                        read_timeout: 10, open_timeout: 10) do |http|
+                                            read_timeout: 10, open_timeout: 10) do |http|
           request = Net::HTTP::Get.new(uri)
           request["User-Agent"] = "RubyCode/#{RubyCode::VERSION}"
           http.request(request)

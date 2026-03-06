@@ -12,13 +12,11 @@ module RubyCode
         last_error = nil
 
         @providers.each do |provider|
-          begin
-            results = provider.search(query, max_results: max_results)
-            return results if results && !results.empty?
-          rescue StandardError => e
-            last_error = e
-            # Continue to next provider
-          end
+          results = provider.search(query, max_results: max_results)
+          return results if results && !results.empty?
+        rescue StandardError => e
+          last_error = e
+          # Continue to next provider
         end
 
         # If all providers failed, raise the last error

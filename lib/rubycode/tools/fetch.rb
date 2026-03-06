@@ -43,7 +43,7 @@ module RubyCode
         uri = URI.parse(url)
 
         Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                        read_timeout: REQUEST_TIMEOUT, open_timeout: 10) do |http|
+                                            read_timeout: REQUEST_TIMEOUT, open_timeout: 10) do |http|
           request = Net::HTTP::Get.new(uri)
           request["User-Agent"] = "RubyCode/#{RubyCode::VERSION}"
           response = http.request(request)
@@ -60,9 +60,7 @@ module RubyCode
 
             # Handle relative redirects
             redirect_uri = URI.parse(location)
-            unless redirect_uri.absolute?
-              redirect_uri = uri + location
-            end
+            redirect_uri = uri + location unless redirect_uri.absolute?
 
             fetch_url(redirect_uri.to_s)
           else

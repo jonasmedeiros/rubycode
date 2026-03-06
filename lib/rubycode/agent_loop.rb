@@ -9,6 +9,7 @@ module RubyCode
   class AgentLoop
     MAX_ITERATIONS = 25
     MAX_TOOL_CALLS = 50
+    MAX_CONSECUTIVE_RATE_LIMIT_ERRORS = 3
 
     def initialize(adapter:, memory:, config:, system_prompt:, options: {})
       @adapter = adapter
@@ -20,6 +21,7 @@ module RubyCode
       @response_handler = Client::ResponseHandler.new(memory: @memory, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
       @approval_handler = Client::ApprovalHandler.new(tty_prompt: @tty_prompt, config: @config)
+      @consecutive_rate_limit_errors = 0
     end
 
     def run
@@ -50,10 +52,10 @@ module RubyCode
       # Return error message when LLM server is unavailable
       "\n❌ Unable to reach LLM server after multiple retries.\n\n" \
       "Error: #{e.message}\n\n" \
-      "Please check:\n" \
-      "  • Is your LLM server running?\n" \
-      "  • Are you being rate limited? (wait a few minutes)\n" \
-      "  • Is the server URL correct in your config?\n"
+      "Please check:\n  " \
+      "• Is your LLM server running?\n  " \
+      "• Are you being rate limited? (wait a few minutes)\n  " \
+      "• Is the server URL correct in your config?\n"
     end
 
     private
@@ -74,6 +76,9 @@ module RubyCode
       content = assistant_message["content"] || ""
       tool_calls = assistant_message["tool_calls"] || []
 
+      # Reset rate limit error counter on successful response
+      @consecutive_rate_limit_errors = 0
+
       @memory.add_message(role: "assistant", content: content)
       [content, tool_calls]
     rescue RubyCode::AdapterRetryExhaustedError => e
@@ -81,18 +86,41 @@ module RubyCode
       handle_retry_exhausted(e)
       raise e # Re-raise to stop the loop
     rescue RubyCode::AdapterError => e
+      # Check if this is a rate limit error and stop if we've hit the limit
+      if rate_limit_error?(e)
+        @consecutive_rate_limit_errors += 1
+        if @consecutive_rate_limit_errors >= MAX_CONSECUTIVE_RATE_LIMIT_ERRORS
+          handle_rate_limit_exhausted(e)
+          raise AdapterRetryExhaustedError,
+                "Rate limit exceeded after #{MAX_CONSECUTIVE_RATE_LIMIT_ERRORS} consecutive attempts"
+        end
+      else
+        # Reset counter for non-rate-limit errors
+        @consecutive_rate_limit_errors = 0
+      end
+
       handle_adapter_error(e)
       [nil, []] # Return empty to continue loop
     end
 
     def handle_retry_exhausted(error)
-      error_msg = "All retry attempts failed: #{error.message}\nPlease check your LLM server connection and try again."
+      error_msg = I18n.t("rubycode.errors.adapter_retry_exhausted", error: error.message)
       puts Views::AgentLoop::AdapterError.build(message: error_msg)
       @memory.add_message(role: "user", content: error_msg)
     end
 
     def handle_adapter_error(error)
       error_msg = I18n.t("rubycode.errors.adapter_failed", error: error.message)
+      puts Views::AgentLoop::AdapterError.build(message: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
+    end
+
+    def rate_limit_error?(error)
+      error.message.include?("Rate limited") || error.message.include?("429")
+    end
+
+    def handle_rate_limit_exhausted(_error)
+      error_msg = I18n.t("rubycode.errors.rate_limit_exhausted", max_attempts: MAX_CONSECUTIVE_RATE_LIMIT_ERRORS)
       puts Views::AgentLoop::AdapterError.build(message: error_msg)
       @memory.add_message(role: "user", content: error_msg)
     end

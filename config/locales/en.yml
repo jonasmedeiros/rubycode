@@ -85,6 +85,8 @@ en:
       adapter_connection: "Cannot connect to LLM at %{url}: %{error}"
       adapter_retry: "Request failed: %{error}. Retrying in %{delay}s... (attempt %{attempt}/%{max_retries})"
       adapter_failed: "LLM adapter failed: %{error}"
+      adapter_retry_exhausted: "All retry attempts failed: %{error}\nPlease check your LLM server connection and try again."
+      rate_limit_exhausted: "Rate limit exceeded after %{max_attempts} consecutive attempts. Please wait a few minutes before trying again."
       user_cancelled_search: "USER CANCELLED: The user declined web search for '%{query}'. Do not retry this search. Ask the user if they want to search for something else or call 'done' to finish."
       network_error: "Network error: %{message}"
       http_error: "HTTP %{code}: %{message}"

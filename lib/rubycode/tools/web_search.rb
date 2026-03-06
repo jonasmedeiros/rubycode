@@ -46,8 +46,8 @@ module RubyCode
         # Fallback: Brave Search API (PAID, if configured)
         if ENV["BRAVE_API_KEY"]
           multi.add_provider(SearchProviders::BraveSearch.new(
-            api_key: ENV["BRAVE_API_KEY"]
-          ))
+                               api_key: ENV["BRAVE_API_KEY"]
+                             ))
         end
 
         # Search with automatic fallback
@@ -74,7 +74,7 @@ module RubyCode
         uri = URI.parse(url)
 
         Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                        read_timeout: 5, open_timeout: 5) do |http|
+                                            read_timeout: 5, open_timeout: 5) do |http|
           request = Net::HTTP::Head.new(uri.request_uri)
           response = http.request(request)
           response.is_a?(Net::HTTPSuccess) || response.is_a?(Net::HTTPRedirection)
