@@ -2,16 +2,14 @@
 
 require "net/http"
 require "uri"
-require "json"
-require_relative "../searxng_instances"
+require_relative "../search_providers/multi_provider"
+require_relative "../search_providers/duckduckgo_instant"
+require_relative "../search_providers/brave_search"
 
 module RubyCode
   module Tools
-    # Tool for searching the web using SearXNG metasearch engine
+    # Tool for searching the web using multiple search providers
     class WebSearch < Base
-      REQUEST_TIMEOUT = 10
-      MAX_INSTANCE_RETRIES = 3
-
       private
 
       def perform(params)
@@ -19,7 +17,7 @@ module RubyCode
         max_results = params["max_results"] || 5
 
         request_approval(query, max_results)
-        results = search_searxng(query, max_results)
+        results = search_web(query, max_results)
         format_results(results)
       rescue StandardError => e
         raise ToolError, "Search failed: #{e.message}"
@@ -32,75 +30,30 @@ module RubyCode
         raise ToolError, I18n.t("rubycode.errors.user_cancelled_search")
       end
 
-      def search_searxng(query, max_results)
-        results = fetch_and_parse_results(query)
+      def search_web(query, max_results)
+        results = fetch_and_parse_results(query, max_results)
         verified_results = verify_results(results, max_results)
         verified_results.first(max_results)
       end
 
-      def fetch_and_parse_results(query)
-        instance_tried = 0
-        last_error = nil
+      def fetch_and_parse_results(query, max_results)
+        # Initialize multi-provider with fallback strategy
+        multi = SearchProviders::MultiProvider.new
 
-        # Try multiple instances if one fails
-        SearXNGInstances.all.shuffle.each do |instance|
-          return fetch_from_instance(instance, query)
-        rescue StandardError => e
-          last_error = e
-          instance_tried += 1
-          next if instance_tried < MAX_INSTANCE_RETRIES
+        # Primary: DuckDuckGo Instant API (FREE)
+        multi.add_provider(SearchProviders::DuckduckgoInstant.new)
+
+        # Fallback: Brave Search API (PAID, if configured)
+        if ENV["BRAVE_API_KEY"]
+          multi.add_provider(SearchProviders::BraveSearch.new(
+            api_key: ENV["BRAVE_API_KEY"]
+          ))
         end
 
-        raise ToolError, "All SearXNG instances failed. Last error: #{last_error&.message}"
-      end
-
-      def fetch_from_instance(instance, query)
-        uri = build_search_uri(instance, query)
-        response = make_http_request(uri)
-
-        unless response.is_a?(Net::HTTPSuccess)
-          raise HTTPError, "HTTP #{response.code}: #{response.message}"
-        end
-
-        parse_json_results(response.body)
-      end
-
-      def build_search_uri(instance, query)
-        URI("#{instance}/search").tap do |uri|
-          uri.query = URI.encode_www_form(
-            q: query,
-            format: "json",
-            language: "en"
-          )
-        end
-      end
-
-      def make_http_request(uri)
-        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                        read_timeout: REQUEST_TIMEOUT, open_timeout: REQUEST_TIMEOUT) do |http|
-          request = Net::HTTP::Get.new(uri)
-          request["User-Agent"] = "RubyCode/#{RubyCode::VERSION}"
-          http.request(request)
-        end
-      rescue Net::OpenTimeout, Net::ReadTimeout => e
-        raise NetworkError, "Request timed out: #{e.message}"
-      rescue SocketError, Errno::ECONNREFUSED => e
-        raise NetworkError, "Connection failed: #{e.message}"
-      end
-
-      def parse_json_results(json_body)
-        data = JSON.parse(json_body)
-        results = data["results"] || []
-
-        results.map do |result|
-          {
-            title: result["title"],
-            url: result["url"],
-            snippet: result["content"] || result["snippet"] || ""
-          }
-        end
-      rescue JSON::ParserError => e
-        raise ToolError, "Failed to parse search results: #{e.message}"
+        # Search with automatic fallback
+        multi.search(query, max_results: max_results * 2) # Get more to filter
+      rescue StandardError => e
+        raise ToolError, "All search providers failed: #{e.message}"
       end
 
       def verify_results(results, max_results)
@@ -116,6 +69,8 @@ module RubyCode
       end
 
       def url_exists?(url)
+        return false if url.nil? || url.empty?
+
         uri = URI.parse(url)
 
         Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",

@@ -108,13 +108,31 @@ The agent has access to several built-in tools:
 3. **read**: Read files with line numbers or list directory contents
 4. **write**: Create new files (requires user approval)
 5. **update**: Edit existing files with exact string replacement (requires user approval)
-6. **web_search**: Search the web using SearXNG metasearch engine (aggregates multiple search providers)
+6. **web_search**: Search the web with automatic provider fallback:
+   - Primary: DuckDuckGo Instant Answer API (free, no API key needed)
+   - Fallback: Brave Search API (optional, for better results)
 7. **fetch**: Fetch and extract text content from URLs
 8. **done**: Signal completion and provide the final answer
 
 **Note**: Tool schemas are externalized in `config/tools/*.json` for easy customization.
 
-**Web Tools**: The `web_search` tool uses public SearXNG instances to aggregate search results from multiple engines (Google, Bing, DuckDuckGo, etc.). Please be respectful of rate limits when using public instances.
+#### Web Search Configuration
+
+**By default** (no setup needed):
+- Uses DuckDuckGo Instant Answer API (free, no CAPTCHA)
+- Good for factual queries and summaries
+
+**For better results** (optional):
+```bash
+# Sign up at https://brave.com/search/api/
+export BRAVE_API_KEY=your_api_key_here
+
+# Then run RubyCode - it will automatically use Brave as fallback
+```
+
+**Pricing** (if using Brave):
+- $5/month base + first 2,000 queries included
+- $5 per additional 1,000 queries
 
 ### New in 0.1.3
 

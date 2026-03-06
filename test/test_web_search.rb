@@ -2,8 +2,8 @@
 
 require "test_helper"
 
-# NOTE: Tests mock search_searxng and url_exists? methods,
-# so SearXNG HTTP requests are not made during tests
+# NOTE: Tests mock search_web and url_exists? methods,
+# so external HTTP requests are not made during tests
 
 class MockApprovalHandler
   attr_accessor :should_approve
@@ -41,7 +41,7 @@ class TestWebSearch < Minitest::Test
 
   def test_search_with_real_query
     fake_results = mock_search_results
-    @search_tool.define_singleton_method(:search_searxng) { |_q, _m| fake_results }
+    @search_tool.define_singleton_method(:search_web) { |_q, _m| fake_results }
     result = @search_tool.execute({ "query" => "Ruby programming", "max_results" => 3 })
 
     assert_instance_of RubyCode::ToolResult, result
@@ -70,7 +70,7 @@ class TestWebSearch < Minitest::Test
     search_called = false
     expected_max_results = nil
 
-    @search_tool.define_singleton_method(:search_searxng) do |_query, max_results|
+    @search_tool.define_singleton_method(:search_web) do |_query, max_results|
       search_called = true
       expected_max_results = max_results
       []
@@ -86,7 +86,7 @@ class TestWebSearch < Minitest::Test
     search_called = false
     expected_max_results = nil
 
-    @search_tool.define_singleton_method(:search_searxng) do |_query, max_results|
+    @search_tool.define_singleton_method(:search_web) do |_query, max_results|
       search_called = true
       expected_max_results = max_results
       []
@@ -120,66 +120,6 @@ class TestWebSearchInternals < Minitest::Test
       approval_handler: @approval_handler
     }
     @search_tool = RubyCode::Tools::WebSearch.new(context: @context)
-  end
-
-  def test_parse_json_results_extracts_data
-    json_body = {
-      "results" => [
-        { "title" => "Example Title", "url" => "https://example.com", "content" => "This is an example snippet." },
-        { "title" => "Test Title", "url" => "https://test.com", "content" => "This is a test snippet." }
-      ]
-    }.to_json
-
-    results = @search_tool.send(:parse_json_results, json_body)
-
-    assert_equal 2, results.length
-    assert_equal "Example Title", results[0][:title]
-    assert_equal "https://example.com", results[0][:url]
-    assert_equal "This is an example snippet.", results[0][:snippet]
-    assert_equal "Test Title", results[1][:title]
-  end
-
-  def test_parse_json_results_handles_missing_content
-    json_body = {
-      "results" => [
-        { "title" => "Example Title", "url" => "https://example.com" }
-      ]
-    }.to_json
-
-    results = @search_tool.send(:parse_json_results, json_body)
-
-    assert_equal 1, results.length
-    assert_equal "", results[0][:snippet]
-  end
-
-  def test_parse_json_results_handles_snippet_field
-    json_body = {
-      "results" => [
-        { "title" => "Example Title", "url" => "https://example.com", "snippet" => "Snippet text" }
-      ]
-    }.to_json
-
-    results = @search_tool.send(:parse_json_results, json_body)
-
-    assert_equal 1, results.length
-    assert_equal "Snippet text", results[0][:snippet]
-  end
-
-  def test_parse_json_results_raises_on_invalid_json
-    error = assert_raises(RubyCode::ToolError) do
-      @search_tool.send(:parse_json_results, "invalid json{{{")
-    end
-    assert_match(/Failed to parse search results/, error.message)
-  end
-
-  def test_build_search_uri_formats_correctly
-    uri = @search_tool.send(:build_search_uri, "https://example.com", "test query")
-
-    assert_equal "example.com", uri.host
-    assert_equal "/search", uri.path
-    assert_includes uri.query, "q=test+query"
-    assert_includes uri.query, "format=json"
-    assert_includes uri.query, "language=en"
   end
 
   def test_format_results_returns_no_results_message_when_empty
