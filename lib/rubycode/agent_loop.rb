@@ -68,7 +68,7 @@ module RubyCode
 
       @memory.add_message(role: "assistant", content: content)
       [content, tool_calls]
-    rescue AdapterError => e
+    rescue RubyCode::AdapterError => e
       handle_adapter_error(e)
       [nil, []] # Return empty to continue loop
     end
