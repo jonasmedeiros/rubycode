@@ -1,14 +1,15 @@
 # frozen_string_literal: true
 
-require "ferrum"
+require "net/http"
+require "uri"
 require "nokogiri"
-require_relative "../browser_manager"
 
 module RubyCode
   module Tools
     # Tool for fetching HTML content from URLs
     class Fetch < Base
       MAX_TEXT_SIZE = 50 * 1024 # 50KB limit for text extraction
+      REQUEST_TIMEOUT = 30
 
       private
 
@@ -39,20 +40,39 @@ module RubyCode
       end
 
       def fetch_url(url)
-        browser = BrowserManager.browser
-        browser.go_to(url)
-        browser.network.wait_for_idle(timeout: 30)
+        uri = URI.parse(url)
 
-        # Get rendered HTML and force UTF-8 encoding
-        html = browser.body
-        html.force_encoding("UTF-8")
-      rescue Ferrum::TimeoutError => e
+        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+                        read_timeout: REQUEST_TIMEOUT, open_timeout: 10) do |http|
+          request = Net::HTTP::Get.new(uri)
+          request["User-Agent"] = "RubyCode/#{RubyCode::VERSION}"
+          response = http.request(request)
+
+          case response
+          when Net::HTTPSuccess
+            # Force UTF-8 encoding
+            html = response.body
+            html.force_encoding("UTF-8")
+          when Net::HTTPRedirection
+            # Follow redirect
+            location = response["location"]
+            raise HTTPError, "Redirect loop detected" if location == url
+
+            # Handle relative redirects
+            redirect_uri = URI.parse(location)
+            unless redirect_uri.absolute?
+              redirect_uri = uri + location
+            end
+
+            fetch_url(redirect_uri.to_s)
+          else
+            raise HTTPError, "HTTP #{response.code}: #{response.message}"
+          end
+        end
+      rescue Net::OpenTimeout, Net::ReadTimeout => e
         raise NetworkError, "Request timed out: #{e.message}"
-      rescue Ferrum::StatusError => e
-        status = e.response&.status || "unknown"
-        raise HTTPError, "HTTP #{status}: #{e.message}"
-      rescue Ferrum::NetworkError => e
-        raise NetworkError, "Network error: #{e.message}"
+      rescue SocketError, Errno::ECONNREFUSED => e
+        raise NetworkError, "Connection failed: #{e.message}"
       end
 
       def extract_text_content(html)

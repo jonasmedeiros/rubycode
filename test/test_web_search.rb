@@ -2,8 +2,8 @@
 
 require "test_helper"
 
-# NOTE: Tests mock search_duckduckgo and url_exists? methods,
-# so Ferrum browser is not initialized during tests
+# NOTE: Tests mock search_searxng and url_exists? methods,
+# so SearXNG HTTP requests are not made during tests
 
 class MockApprovalHandler
   attr_accessor :should_approve
@@ -41,7 +41,7 @@ class TestWebSearch < Minitest::Test
 
   def test_search_with_real_query
     fake_results = mock_search_results
-    @search_tool.define_singleton_method(:search_duckduckgo) { |_q, _m| fake_results }
+    @search_tool.define_singleton_method(:search_searxng) { |_q, _m| fake_results }
     result = @search_tool.execute({ "query" => "Ruby programming", "max_results" => 3 })
 
     assert_instance_of RubyCode::ToolResult, result
@@ -70,7 +70,7 @@ class TestWebSearch < Minitest::Test
     search_called = false
     expected_max_results = nil
 
-    @search_tool.define_singleton_method(:search_duckduckgo) do |_query, max_results|
+    @search_tool.define_singleton_method(:search_searxng) do |_query, max_results|
       search_called = true
       expected_max_results = max_results
       []
@@ -86,7 +86,7 @@ class TestWebSearch < Minitest::Test
     search_called = false
     expected_max_results = nil
 
-    @search_tool.define_singleton_method(:search_duckduckgo) do |_query, max_results|
+    @search_tool.define_singleton_method(:search_searxng) do |_query, max_results|
       search_called = true
       expected_max_results = max_results
       []
@@ -122,96 +122,64 @@ class TestWebSearchInternals < Minitest::Test
     @search_tool = RubyCode::Tools::WebSearch.new(context: @context)
   end
 
-  def test_parse_search_results_extracts_data
-    html = build_search_html([
-                               { url: "https://example.com", title: "Example Title",
-                                 snippet: "This is an example snippet." },
-                               { url: "https://test.com", title: "Test Title", snippet: "This is a test snippet." }
-                             ])
-    results = @search_tool.send(:parse_search_results, html)
+  def test_parse_json_results_extracts_data
+    json_body = {
+      "results" => [
+        { "title" => "Example Title", "url" => "https://example.com", "content" => "This is an example snippet." },
+        { "title" => "Test Title", "url" => "https://test.com", "content" => "This is a test snippet." }
+      ]
+    }.to_json
+
+    results = @search_tool.send(:parse_json_results, json_body)
 
     assert_equal 2, results.length
     assert_equal "Example Title", results[0][:title]
+    assert_equal "https://example.com", results[0][:url]
+    assert_equal "This is an example snippet.", results[0][:snippet]
     assert_equal "Test Title", results[1][:title]
   end
 
-  def test_parse_search_results_handles_missing_snippet
-    html = <<~HTML
-      <html>
-        <body>
-          <div class="result">
-            <a class="result__a" href="https://example.com">Example Title</a>
-          </div>
-        </body>
-      </html>
-    HTML
+  def test_parse_json_results_handles_missing_content
+    json_body = {
+      "results" => [
+        { "title" => "Example Title", "url" => "https://example.com" }
+      ]
+    }.to_json
 
-    results = @search_tool.send(:parse_search_results, html)
+    results = @search_tool.send(:parse_json_results, json_body)
 
     assert_equal 1, results.length
     assert_equal "", results[0][:snippet]
   end
 
-  def test_parse_search_results_skips_results_without_title
-    html = <<~HTML
-      <html>
-        <body>
-          <div class="result">
-            <div class="result__snippet">Snippet without title</div>
-          </div>
-          <div class="result">
-            <a class="result__a" href="https://example.com">Valid Result</a>
-          </div>
-        </body>
-      </html>
-    HTML
+  def test_parse_json_results_handles_snippet_field
+    json_body = {
+      "results" => [
+        { "title" => "Example Title", "url" => "https://example.com", "snippet" => "Snippet text" }
+      ]
+    }.to_json
 
-    results = @search_tool.send(:parse_search_results, html)
+    results = @search_tool.send(:parse_json_results, json_body)
 
     assert_equal 1, results.length
-    assert_equal "Valid Result", results[0][:title]
+    assert_equal "Snippet text", results[0][:snippet]
   end
 
-  def test_normalize_url_converts_relative_to_absolute
-    url = "//example.com/path"
-    normalized = @search_tool.send(:normalize_url, url)
-    assert_equal "https://example.com/path", normalized
+  def test_parse_json_results_raises_on_invalid_json
+    error = assert_raises(RubyCode::ToolError) do
+      @search_tool.send(:parse_json_results, "invalid json{{{")
+    end
+    assert_match(/Failed to parse search results/, error.message)
   end
 
-  def test_normalize_url_keeps_absolute_urls
-    url = "https://example.com/path"
-    normalized = @search_tool.send(:normalize_url, url)
-    assert_equal "https://example.com/path", normalized
-  end
+  def test_build_search_uri_formats_correctly
+    uri = @search_tool.send(:build_search_uri, "https://example.com", "test query")
 
-  def test_normalize_url_returns_nil_for_nil
-    normalized = @search_tool.send(:normalize_url, nil)
-    assert_nil normalized
-  end
-
-  def test_extract_result_data_returns_nil_without_title
-    html = Nokogiri::HTML("<div class='result'></div>")
-    result_div = html.at_css(".result")
-
-    result = @search_tool.send(:extract_result_data, result_div)
-
-    assert_nil result
-  end
-
-  def test_extract_result_data_returns_hash_with_title
-    html = Nokogiri::HTML(<<~HTML)
-      <div class='result'>
-        <a class='result__a' href='https://example.com'>Title</a>
-        <div class='result__snippet'>Snippet text</div>
-      </div>
-    HTML
-    result_div = html.at_css(".result")
-
-    result = @search_tool.send(:extract_result_data, result_div)
-
-    assert_equal "Title", result[:title]
-    assert_equal "https://example.com", result[:url]
-    assert_equal "Snippet text", result[:snippet]
+    assert_equal "example.com", uri.host
+    assert_equal "/search", uri.path
+    assert_includes uri.query, "q=test+query"
+    assert_includes uri.query, "format=json"
+    assert_includes uri.query, "language=en"
   end
 
   def test_format_results_returns_no_results_message_when_empty
@@ -269,59 +237,34 @@ class TestWebSearchInternals < Minitest::Test
     assert_equal 3, verified.length
   end
 
-  def test_url_exists_returns_true_for_success
-    mock_page = create_mock_page(status: 200)
-    mock_browser = create_mock_browser_with_page(mock_page)
+  def test_url_exists_with_mock_http
+    # Create a mock HTTP response
+    mock_response = Net::HTTPSuccess.new("1.1", "200", "OK")
 
-    RubyCode::BrowserManager.stub :browser, mock_browser do
-      assert @search_tool.send(:url_exists?, "https://httpbin.org/status/200")
+    Net::HTTP.stub :start, ->(_host, _port, **_options, &block) { block.call(mock_http(mock_response)) } do
+      assert @search_tool.send(:url_exists?, "https://example.com")
     end
   end
 
   def test_url_exists_returns_false_for_not_found
-    mock_page = create_mock_page(status: 404)
-    mock_browser = create_mock_browser_with_page(mock_page)
+    mock_response = Net::HTTPNotFound.new("1.1", "404", "Not Found")
 
-    RubyCode::BrowserManager.stub :browser, mock_browser do
-      refute @search_tool.send(:url_exists?, "https://httpbin.org/status/404")
+    Net::HTTP.stub :start, ->(_host, _port, **_options, &block) { block.call(mock_http(mock_response)) } do
+      refute @search_tool.send(:url_exists?, "https://example.com/notfound")
     end
   end
 
-  def test_url_exists_returns_false_for_invalid_url
-    mock_browser = Object.new
-    mock_browser.define_singleton_method(:create_page) { raise StandardError, "Network error" }
-
-    RubyCode::BrowserManager.stub :browser, mock_browser do
-      refute @search_tool.send(:url_exists?, "https://this-domain-does-not-exist-12345.com")
+  def test_url_exists_returns_false_for_network_error
+    Net::HTTP.stub :start, ->(_host, _port, **_options) { raise SocketError, "Network error" } do
+      refute @search_tool.send(:url_exists?, "https://invalid-domain.com")
     end
   end
 
   private
 
-  def build_search_html(items)
-    results = items.map do |item|
-      "<div class=\"result\">" \
-        "<a class=\"result__a\" href=\"#{item[:url]}\">#{item[:title]}</a>" \
-        "<div class=\"result__snippet\">#{item[:snippet]}</div></div>"
-    end.join
-    "<html><body>#{results}</body></html>"
-  end
-
-  def create_mock_page(status:)
-    mock_network = Object.new
-    mock_network.define_singleton_method(:status) { status }
-
-    mock_page = Object.new
-    mock_page.define_singleton_method(:go_to) { |_url| }
-    mock_page.define_singleton_method(:network) { mock_network }
-    mock_page.define_singleton_method(:close) {}
-
-    mock_page
-  end
-
-  def create_mock_browser_with_page(page)
-    mock_browser = Object.new
-    mock_browser.define_singleton_method(:create_page) { page }
-    mock_browser
+  def mock_http(response)
+    http = Object.new
+    http.define_singleton_method(:request) { |_req| response }
+    http
   end
 end

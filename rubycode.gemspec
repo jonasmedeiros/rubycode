@@ -43,9 +43,6 @@ Gem::Specification.new do |spec|
   # Nokogiri for HTML parsing in web tools
   spec.add_dependency "nokogiri", "~> 1.16"
 
-  # Ferrum for headless browser automation in web tools
-  spec.add_dependency "ferrum", "~> 0.15"
-
   # Sequel ORM for persistent conversation memory
   spec.add_dependency "sequel", "~> 5.87"
   spec.add_dependency "sqlite3", "~> 2.4"

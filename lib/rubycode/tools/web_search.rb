@@ -1,15 +1,16 @@
 # frozen_string_literal: true
 
-require "ferrum"
-require "nokogiri"
-require_relative "../browser_manager"
+require "net/http"
+require "uri"
+require "json"
+require_relative "../searxng_instances"
 
 module RubyCode
   module Tools
-    # Tool for searching the web and verifying link existence
+    # Tool for searching the web using SearXNG metasearch engine
     class WebSearch < Base
-      DUCKDUCKGO_URL = "https://html.duckduckgo.com/html/"
-      HEAD_REQUEST_TIMEOUT = 5
+      REQUEST_TIMEOUT = 10
+      MAX_INSTANCE_RETRIES = 3
 
       private
 
@@ -18,7 +19,7 @@ module RubyCode
         max_results = params["max_results"] || 5
 
         request_approval(query, max_results)
-        results = search_duckduckgo(query, max_results)
+        results = search_searxng(query, max_results)
         format_results(results)
       rescue StandardError => e
         raise ToolError, "Search failed: #{e.message}"
@@ -31,63 +32,75 @@ module RubyCode
         raise ToolError, I18n.t("rubycode.errors.user_cancelled_search")
       end
 
-      def search_duckduckgo(query, max_results)
-        html = fetch_search_results(query)
-        results = parse_search_results(html)
+      def search_searxng(query, max_results)
+        results = fetch_and_parse_results(query)
         verified_results = verify_results(results, max_results)
         verified_results.first(max_results)
       end
 
-      def fetch_search_results(query)
-        browser = BrowserManager.browser
-        browser.go_to(DUCKDUCKGO_URL)
-        browser.network.wait_for_idle
+      def fetch_and_parse_results(query)
+        instance_tried = 0
+        last_error = nil
 
-        # Fill search form and submit
-        browser.at_css('input[name="q"]').focus.type(query)
-        browser.at_css('input[type="submit"]').click
-
-        # Wait for results page to load
-        browser.network.wait_for_idle(timeout: 10)
-
-        # Get rendered HTML and force UTF-8 encoding
-        html = browser.body
-        html.force_encoding("UTF-8")
-      rescue Ferrum::TimeoutError => e
-        raise ToolError, "Search timed out: #{e.message}"
-      rescue Ferrum::NetworkError, Ferrum::StatusError => e
-        raise HTTPError, "Search request failed: #{e.message}"
-      end
-
-      def parse_search_results(html)
-        doc = Nokogiri::HTML(html)
-        results = []
-
-        doc.css(".result").each do |result_div|
-          result = extract_result_data(result_div)
-          results << result if result
+        # Try multiple instances if one fails
+        SearXNGInstances.all.shuffle.each do |instance|
+          return fetch_from_instance(instance, query)
+        rescue StandardError => e
+          last_error = e
+          instance_tried += 1
+          next if instance_tried < MAX_INSTANCE_RETRIES
         end
 
-        results
+        raise ToolError, "All SearXNG instances failed. Last error: #{last_error&.message}"
       end
 
-      def extract_result_data(result_div)
-        title_elem = result_div.at_css(".result__a")
-        return nil unless title_elem
+      def fetch_from_instance(instance, query)
+        uri = build_search_uri(instance, query)
+        response = make_http_request(uri)
 
-        snippet_elem = result_div.at_css(".result__snippet")
-        title = title_elem.text.strip
-        url = normalize_url(title_elem["href"])
-        snippet = snippet_elem&.text&.strip || ""
+        unless response.is_a?(Net::HTTPSuccess)
+          raise HTTPError, "HTTP #{response.code}: #{response.message}"
+        end
 
-        { title: title, url: url, snippet: snippet } if url
+        parse_json_results(response.body)
       end
 
-      def normalize_url(url)
-        return nil unless url
+      def build_search_uri(instance, query)
+        URI("#{instance}/search").tap do |uri|
+          uri.query = URI.encode_www_form(
+            q: query,
+            format: "json",
+            language: "en"
+          )
+        end
+      end
 
-        # DuckDuckGo sometimes returns relative URLs, make them absolute
-        url.start_with?("//") ? "https:#{url}" : url
+      def make_http_request(uri)
+        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+                        read_timeout: REQUEST_TIMEOUT, open_timeout: REQUEST_TIMEOUT) do |http|
+          request = Net::HTTP::Get.new(uri)
+          request["User-Agent"] = "RubyCode/#{RubyCode::VERSION}"
+          http.request(request)
+        end
+      rescue Net::OpenTimeout, Net::ReadTimeout => e
+        raise NetworkError, "Request timed out: #{e.message}"
+      rescue SocketError, Errno::ECONNREFUSED => e
+        raise NetworkError, "Connection failed: #{e.message}"
+      end
+
+      def parse_json_results(json_body)
+        data = JSON.parse(json_body)
+        results = data["results"] || []
+
+        results.map do |result|
+          {
+            title: result["title"],
+            url: result["url"],
+            snippet: result["content"] || result["snippet"] || ""
+          }
+        end
+      rescue JSON::ParserError => e
+        raise ToolError, "Failed to parse search results: #{e.message}"
       end
 
       def verify_results(results, max_results)
@@ -103,17 +116,15 @@ module RubyCode
       end
 
       def url_exists?(url)
-        # Create a new page for verification (sequential approach)
-        page = BrowserManager.browser.create_page
-        page.go_to(url)
+        uri = URI.parse(url)
 
-        # Check status code
-        status = page.network.status
-        page.close
-
-        status >= 200 && status < 400
+        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+                        read_timeout: 5, open_timeout: 5) do |http|
+          request = Net::HTTP::Head.new(uri.request_uri)
+          response = http.request(request)
+          response.is_a?(Net::HTTPSuccess) || response.is_a?(Net::HTTPRedirection)
+        end
       rescue StandardError
-        page&.close
         false # Consider URL dead if verification fails
       end
 

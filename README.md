@@ -33,25 +33,6 @@ A Ruby-native AI coding assistant with pluggable LLM adapters. RubyCode provides
 ## Requirements
 
 - Ruby 3.1 or higher
-- **Chrome or Chromium browser** (required for web_search and fetch tools)
-
-### Installing Chrome/Chromium
-
-**macOS:**
-```bash
-brew install --cask chromium
-# or
-brew install --cask google-chrome
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get update
-sudo apt-get install chromium-browser
-```
-
-**Windows:**
-Download from [chromium.org](https://www.chromium.org/getting-involved/download-chromium/) or [google.com/chrome](https://www.google.com/chrome/)
 
 ## Installation
 
@@ -116,7 +97,7 @@ end
 
 ### Available Tools
 
-The agent has access to six built-in tools:
+The agent has access to several built-in tools:
 
 1. **bash**: Execute safe bash commands including:
    - Directory exploration: `ls`, `pwd`, `find`, `tree`
@@ -127,9 +108,13 @@ The agent has access to six built-in tools:
 3. **read**: Read files with line numbers or list directory contents
 4. **write**: Create new files (requires user approval)
 5. **update**: Edit existing files with exact string replacement (requires user approval)
-6. **done**: Signal completion and provide the final answer
+6. **web_search**: Search the web using SearXNG metasearch engine (aggregates multiple search providers)
+7. **fetch**: Fetch and extract text content from URLs
+8. **done**: Signal completion and provide the final answer
 
 **Note**: Tool schemas are externalized in `config/tools/*.json` for easy customization.
+
+**Web Tools**: The `web_search` tool uses public SearXNG instances to aggregate search results from multiple engines (Google, Bing, DuckDuckGo, etc.). Please be respectful of rate limits when using public instances.
 
 ### New in 0.1.3
 
