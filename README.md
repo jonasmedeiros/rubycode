@@ -30,6 +30,29 @@ A Ruby-native AI coding assistant with pluggable LLM adapters. RubyCode provides
 - **I18n Support**: Internationalized error messages and UI text
 - **Environment Context**: Automatically provides Ruby version, platform, and working directory info
 
+## Requirements
+
+- Ruby 3.1 or higher
+- **Chrome or Chromium browser** (required for web_search and fetch tools)
+
+### Installing Chrome/Chromium
+
+**macOS:**
+```bash
+brew install --cask chromium
+# or
+brew install --cask google-chrome
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install chromium-browser
+```
+
+**Windows:**
+Download from [chromium.org](https://www.chromium.org/getting-involved/download-chromium/) or [google.com/chrome](https://www.google.com/chrome/)
+
 ## Installation
 
 Install the gem by executing:

@@ -22,11 +22,13 @@ class TestRubycode < Minitest::Test
   end
 
   def test_tools_are_available
-    assert_equal 6, RubyCode::Tools::TOOLS.length
+    assert_equal 8, RubyCode::Tools::TOOLS.length
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Bash
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Read
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Search
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Done
+    assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::WebSearch
+    assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Fetch
   end
 
   def test_tool_definitions_are_valid

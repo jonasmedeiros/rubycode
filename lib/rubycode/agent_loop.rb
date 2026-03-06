@@ -108,7 +108,7 @@ module RubyCode
       result = run_tool(tool_name, params)
       return nil unless result
 
-      @display_formatter.display_result(result)
+      @display_formatter.display_result(result, tool_name: tool_name)
       add_tool_result_to_memory(tool_name, result)
       result
     rescue ToolError, StandardError => e

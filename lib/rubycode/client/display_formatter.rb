@@ -12,7 +12,9 @@ module RubyCode
         "read" => ["[READ]", "file_path"],
         "search" => ["[SEARCH]", "pattern"],
         "write" => ["[WRITE]", "file_path"],
-        "update" => ["[UPDATE]", "file_path"]
+        "update" => ["[UPDATE]", "file_path"],
+        "web_search" => ["[WEB SEARCH]", "query"],
+        "fetch" => ["[FETCH]", "url"]
       }.freeze
 
       def initialize(config:)
@@ -28,10 +30,13 @@ module RubyCode
         end
       end
 
-      def display_result(result)
-        return unless @config.debug
-
-        puts Views::Formatter::ToolResult.build(result: result)
+      def display_result(result, tool_name: nil)
+        if @config.debug
+          puts Views::Formatter::ToolResult.build(result: result)
+        elsif %w[web_search fetch].include?(tool_name)
+          # Show summaries for web tools even in non-debug mode
+          display_tool_summary(result, tool_name)
+        end
       end
 
       def display_info(message)
@@ -43,6 +48,17 @@ module RubyCode
       end
 
       private
+
+      def display_tool_summary(result, tool_name)
+        return unless result.is_a?(ToolResult)
+
+        case tool_name
+        when "web_search"
+          puts Views::Formatter::WebSearchSummary.build(result: result)
+        when "fetch"
+          puts Views::Formatter::FetchSummary.build(result: result)
+        end
+      end
 
       def display_minimal_tool_info(tool_name, arguments)
         return unless TOOL_LABELS.key?(tool_name)

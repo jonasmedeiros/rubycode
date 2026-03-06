@@ -53,6 +53,20 @@ module RubyCode
         approved
       end
 
+      def request_web_search_approval(query, max_results)
+        display = Views::WebSearchApproval.build(
+          query: query,
+          max_results: max_results
+        )
+        puts display
+
+        approved = request_approval("Perform this web search?")
+
+        puts Views::SkipNotification.build(message: "User declined web search for '#{query}'") unless approved
+
+        approved
+      end
+
       private
 
       def request_approval(question)
