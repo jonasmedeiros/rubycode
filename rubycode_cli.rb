@@ -7,7 +7,7 @@ require "tty-prompt"
 prompt = TTY::Prompt.new
 adapter = :ollama
 
-model = "deepseek-v3.1:671b-cloud"
+model = "deepseek-r1:8b"
 url = "http://localhost:11434"
 
 puts "\n#{RubyCode::Views::Welcome.build}"

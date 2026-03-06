@@ -39,6 +39,8 @@ module RubyCode
       case @config.adapter
       when :ollama
         Adapters::Ollama.new(@config)
+      when :groq
+        Adapters::Groq.new(@config)
       else
         raise I18n.t("rubycode.errors.unknown_adapter")
       end

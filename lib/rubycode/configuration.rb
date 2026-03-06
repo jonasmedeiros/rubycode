@@ -9,7 +9,7 @@ module RubyCode
     def initialize
       @adapter = :ollama
       @url = "http://localhost:11434"
-      @model = "deepseek-v3.1:671b-cloud"
+      @model = "deepseek-r1:8b"
       @root_path = Dir.pwd
       @debug = false # Set to true to see JSON requests/responses
 

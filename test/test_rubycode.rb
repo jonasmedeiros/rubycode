@@ -11,7 +11,7 @@ class TestRubycode < Minitest::Test
     config = RubyCode::Configuration.new
     assert_equal :ollama, config.adapter
     assert_equal "http://localhost:11434", config.url
-    assert_equal "deepseek-v3.1:671b-cloud", config.model
+    assert_equal "deepseek-r1:8b", config.model
     refute config.debug
   end
 

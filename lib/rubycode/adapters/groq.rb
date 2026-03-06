@@ -5,10 +5,17 @@ require "json"
 
 module RubyCode
   module Adapters
-    # Ollama adapter for local LLM integration
-    class Ollama < Base
+    # Groq adapter for cloud LLM integration (OpenAI-compatible API)
+    class Groq < Base
+      API_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
+      def initialize(config)
+        super
+        validate_api_key!
+      end
+
       def generate(messages:, system: nil, tools: nil)
-        uri = URI("#{@config.url}/api/chat")
+        uri = URI(API_ENDPOINT)
         payload = build_payload(messages, system, tools)
         request = build_request(uri, payload)
 
@@ -18,15 +25,25 @@ module RubyCode
 
         debug_response(body) if @config.debug
 
-        body
-      rescue AdapterError => e
-        # If model doesn't support tools, provide helpful error message
-        raise AdapterError, build_tools_error_message if tools && e.message.include?("does not support tools")
-
-        raise e
+        # Convert OpenAI format to our format
+        convert_response(body)
       end
 
       private
+
+      def validate_api_key!
+        return if ENV["GROQ_API_KEY"]
+
+        raise AdapterError, <<~ERROR
+          GROQ_API_KEY environment variable not set.
+
+          Get your API key:
+            https://console.groq.com/keys
+
+          Then set it:
+            export GROQ_API_KEY='gsk_...'
+        ERROR
+      end
 
       def send_request_with_retry(uri, request)
         attempt = 0
@@ -56,19 +73,27 @@ module RubyCode
       end
 
       def build_payload(messages, system, tools)
-        payload = { model: @config.model, messages: messages, stream: false }
-        payload[:system] = system if system
+        # OpenAI format: system message goes in messages array
+        formatted_messages = messages.dup
+
+        formatted_messages.unshift({ role: "system", content: system }) if system
+
+        payload = {
+          model: @config.model,
+          messages: formatted_messages,
+          temperature: 0.7
+        }
+
+        # Groq supports OpenAI function calling format
         payload[:tools] = tools if tools
+
         payload
       end
 
       def build_request(uri, payload)
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"] = "application/json"
-
-        # Optional API key support for cloud/hosted Ollama
-        request["Authorization"] = "Bearer #{ENV["OLLAMA_API_KEY"]}" if ENV["OLLAMA_API_KEY"]
-
+        request["Authorization"] = "Bearer #{ENV.fetch("GROQ_API_KEY", nil)}"
         request.body = payload.to_json
         request
       end
@@ -88,6 +113,7 @@ module RubyCode
         Net::HTTP.start(
           uri.hostname,
           uri.port,
+          use_ssl: true,
           read_timeout: @config.http_read_timeout,
           open_timeout: @config.http_open_timeout
         ) { |http| http.request(request) }
@@ -115,6 +141,9 @@ module RubyCode
         case response.code.to_i
         when 200..299
           body
+        when 401, 403
+          # Auth errors are not retriable
+          raise AdapterError, "Authentication failed (#{response.code}): Check your GROQ_API_KEY"
         when 429
           # Rate limit errors should be retried with backoff
           raise AdapterConnectionError, "Rate limited (#{response.code}): #{response.message}"
@@ -127,9 +156,40 @@ module RubyCode
         end
       end
 
+      def convert_response(openai_response)
+        # OpenAI format: { choices: [{ message: { role, content, tool_calls } }] }
+        # Our format: { "message" => { "content" => ..., "tool_calls" => [...] } }
+
+        choice = openai_response["choices"]&.first
+        raise AdapterError, "No choices in response" unless choice
+
+        message = choice["message"]
+        raise AdapterError, "No message in choice" unless message
+
+        {
+          "message" => {
+            "content" => message["content"] || "",
+            "tool_calls" => format_tool_calls(message["tool_calls"])
+          }
+        }
+      end
+
+      def format_tool_calls(openai_tool_calls)
+        return [] unless openai_tool_calls
+
+        openai_tool_calls.map do |tool_call|
+          {
+            "function" => {
+              "name" => tool_call.dig("function", "name"),
+              "arguments" => tool_call.dig("function", "arguments")
+            }
+          }
+        end
+      end
+
       def debug_request(uri, payload)
         puts "\n#{"=" * 80}"
-        puts "📤 REQUEST TO LLM"
+        puts "📤 REQUEST TO LLM (Groq)"
         puts "=" * 80
         puts "URL: #{uri}"
         puts "Model: #{@config.model}"
@@ -140,25 +200,10 @@ module RubyCode
 
       def debug_response(body)
         puts "\n#{"=" * 80}"
-        puts "📥 RESPONSE FROM LLM"
+        puts "📥 RESPONSE FROM LLM (Groq)"
         puts "=" * 80
         puts JSON.pretty_generate(body)
         puts "#{"=" * 80}\n"
-      end
-
-      def build_tools_error_message
-        <<~ERROR
-          Model '#{@config.model}' does not support tool calling.
-
-          RubyCode requires a model with function/tool calling capabilities.
-
-          Suggested models that support tools:
-          • qwen2.5-coder:7b    (pull with: ollama pull qwen2.5-coder:7b)
-          • llama3.1:8b         (pull with: ollama pull llama3.1:8b)
-          • mistral:7b          (pull with: ollama pull mistral:7b)
-
-          Update your configuration in lib/rubycode/configuration.rb to use a compatible model.
-        ERROR
       end
     end
   end
