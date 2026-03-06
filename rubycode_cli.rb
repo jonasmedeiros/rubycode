@@ -6,18 +6,68 @@ require "tty-prompt"
 
 prompt = TTY::Prompt.new
 
-# Load saved config or use Ollama defaults (backward compatible)
+# Setup wizard for first-time configuration or reconfiguration
+def setup_wizard(prompt)
+  puts "\n🔧 Configuration Setup\n\n"
+
+  # 1. Adapter selection
+  adapter = prompt.select("Select LLM provider:", {
+                            "Ollama (Local)" => :ollama,
+                            "Groq (Cloud - Fast & Free)" => :groq
+                          })
+
+  # 2. Model selection (per adapter)
+  model = case adapter
+          when :ollama
+            prompt.ask("Ollama model:", default: "deepseek-r1:8b")
+          when :groq
+            prompt.select("Groq model:", {
+                            "llama-3.1-8b-instant (Fast)" => "llama-3.1-8b-instant",
+                            "llama-3.1-70b-versatile (Powerful)" => "llama-3.1-70b-versatile",
+                            "mixtral-8x7b-32768 (Long context)" => "mixtral-8x7b-32768"
+                          })
+          end
+
+  # 3. URL (Ollama only, Groq is hardcoded)
+  url = case adapter
+        when :ollama
+          prompt.ask("Ollama URL:", default: "http://localhost:11434")
+        when :groq
+          "https://api.groq.com/openai/v1/chat/completions"
+        end
+
+  # 4. Validate API key if needed
+  if adapter == :groq && !ENV["GROQ_API_KEY"]
+    puts "\n⚠️  GROQ_API_KEY not set!"
+    puts "Get your key: https://console.groq.com/keys"
+    puts "Then: export GROQ_API_KEY='gsk_...'\n"
+    exit 1
+  end
+
+  # 5. Save config
+  config = { adapter: adapter, model: model, url: url, debug: false }
+  RubyCode::ConfigManager.save(config)
+
+  puts "\n✓ Configuration saved to ~/.rubycode/config.yml\n"
+  config
+end
+
+# Load or setup configuration
 if RubyCode::ConfigManager.exists?
   saved_config = RubyCode::ConfigManager.load
-  adapter = saved_config[:adapter]
-  model = saved_config[:model]
-  url = saved_config[:url]
-  debug_default = saved_config.fetch(:debug, false)
+  use_saved = prompt.yes?("Use saved configuration (#{saved_config[:adapter]}/#{saved_config[:model]})?",
+                          default: true)
+  config = use_saved ? saved_config : setup_wizard(prompt)
+  adapter = config[:adapter]
+  model = config[:model]
+  url = config[:url]
+  debug_default = config.fetch(:debug, false)
 else
-  # Defaults: Ollama (no breaking change for existing users)
-  adapter = :ollama
-  model = "deepseek-r1:8b"
-  url = "http://localhost:11434"
+  puts "\n👋 First-time setup!\n"
+  config = setup_wizard(prompt)
+  adapter = config[:adapter]
+  model = config[:model]
+  url = config[:url]
   debug_default = false
 end
 
@@ -51,8 +101,9 @@ RubyCode.configure do |config|
 end
 
 puts RubyCode::Views::Cli::ConfigurationTable.build(
-  directory: full_path,
+  adapter: adapter,
   model: model,
+  directory: full_path,
   debug_mode: debug_mode
 )
 
@@ -75,6 +126,21 @@ loop do
   when "clear"
     client.clear_memory
     puts RubyCode::Views::Cli::MemoryClearedMessage.build
+    next
+  when "config"
+    # Show current config
+    puts RubyCode::Views::Cli::ConfigurationTable.build(
+      adapter: adapter,
+      model: model,
+      directory: full_path,
+      debug_mode: debug_mode
+    )
+
+    # Reconfigure?
+    if prompt.yes?("Reconfigure?", default: false)
+      puts "\nRestart rubycode to apply new configuration."
+      setup_wizard(prompt)
+    end
     next
   end
 
