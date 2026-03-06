@@ -106,6 +106,9 @@ module RubyCode
         case response.code.to_i
         when 200..299
           body
+        when 429
+          # Rate limit errors should be retried with backoff
+          raise AdapterConnectionError, "Rate limited (#{response.code}): #{response.message}"
         when 500..599
           # Server errors are retriable
           raise AdapterConnectionError, "Server error (#{response.code}): #{response.message}"

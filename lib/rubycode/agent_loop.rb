@@ -46,6 +46,14 @@ module RubyCode
         done_result = execute_tool_calls(tool_calls, iteration)
         return @response_handler.finalize_response(done_result, iteration, total_tool_calls) if done_result
       end
+    rescue RubyCode::AdapterRetryExhaustedError => e
+      # Return error message when LLM server is unavailable
+      "\n❌ Unable to reach LLM server after multiple retries.\n\n" \
+      "Error: #{e.message}\n\n" \
+      "Please check:\n" \
+      "  • Is your LLM server running?\n" \
+      "  • Are you being rate limited? (wait a few minutes)\n" \
+      "  • Is the server URL correct in your config?\n"
     end
 
     private
@@ -68,9 +76,19 @@ module RubyCode
 
       @memory.add_message(role: "assistant", content: content)
       [content, tool_calls]
+    rescue RubyCode::AdapterRetryExhaustedError => e
+      # Stop the agent loop when retries are exhausted
+      handle_retry_exhausted(e)
+      raise e # Re-raise to stop the loop
     rescue RubyCode::AdapterError => e
       handle_adapter_error(e)
       [nil, []] # Return empty to continue loop
+    end
+
+    def handle_retry_exhausted(error)
+      error_msg = "All retry attempts failed: #{error.message}\nPlease check your LLM server connection and try again."
+      puts Views::AgentLoop::AdapterError.build(message: error_msg)
+      @memory.add_message(role: "user", content: error_msg)
     end
 
     def handle_adapter_error(error)
