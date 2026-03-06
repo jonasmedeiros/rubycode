@@ -17,7 +17,7 @@ module RubyCode
           "#{pastel.cyan("Max results:")} #{max_results}",
           pastel.cyan("─" * 80),
           pastel.yellow("This will make HTTP requests to:"),
-          pastel.dim("  • DuckDuckGo search engine"),
+          pastel.dim("  • SearXNG metasearch engine (public instances)"),
           pastel.dim("  • Each result URL (HEAD request to verify)"),
           "",
           pastel.cyan("━" * 80)
