@@ -5,10 +5,21 @@ require_relative "lib/rubycode"
 require "tty-prompt"
 
 prompt = TTY::Prompt.new
-adapter = :ollama
 
-model = "deepseek-r1:8b"
-url = "http://localhost:11434"
+# Load saved config or use Ollama defaults (backward compatible)
+if RubyCode::ConfigManager.exists?
+  saved_config = RubyCode::ConfigManager.load
+  adapter = saved_config[:adapter]
+  model = saved_config[:model]
+  url = saved_config[:url]
+  debug_default = saved_config.fetch(:debug, false)
+else
+  # Defaults: Ollama (no breaking change for existing users)
+  adapter = :ollama
+  model = "deepseek-r1:8b"
+  url = "http://localhost:11434"
+  debug_default = false
+end
 
 puts "\n#{RubyCode::Views::Welcome.build}"
 
@@ -26,7 +37,7 @@ unless Dir.exist?(full_path)
 end
 
 debug_mode = prompt.yes?("Enable debug mode?") do |q|
-  q.default false
+  q.default debug_default
 end
 
 RubyCode.configure do |config|

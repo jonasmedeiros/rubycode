@@ -24,5 +24,15 @@ module RubyCode
       @max_retries = 3         # Number of retries (4 total attempts)
       @retry_base_delay = 2.0  # Base delay for exponential backoff
     end
+
+    # Load configuration from a hash
+    # @param hash [Hash] Configuration hash with symbolized keys
+    def load_from_hash(hash)
+      @adapter = hash[:adapter] if hash.key?(:adapter)
+      @model = hash[:model] if hash.key?(:model)
+      @url = hash[:url] if hash.key?(:url)
+      @debug = hash[:debug] if hash.key?(:debug)
+      @root_path = hash[:root_path] if hash.key?(:root_path)
+    end
   end
 end
