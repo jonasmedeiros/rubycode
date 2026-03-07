@@ -11,6 +11,7 @@ module RubyCode
       @config = RubyCode.config
       @adapter = build_adapter
       @memory = Memory.new
+      @memory.clear # Clear memory at start of each session to prevent payload size issues
       @read_files = Set.new
       @tty_prompt = tty_prompt
     end
@@ -39,8 +40,14 @@ module RubyCode
       case @config.adapter
       when :ollama
         Adapters::Ollama.new(@config)
-      when :groq
-        Adapters::Groq.new(@config)
+      when :openrouter
+        Adapters::Openrouter.new(@config)
+      when :deepseek
+        Adapters::Deepseek.new(@config)
+      when :gemini
+        Adapters::Gemini.new(@config)
+      when :openai
+        Adapters::Openai.new(@config)
       else
         raise I18n.t("rubycode.errors.unknown_adapter")
       end

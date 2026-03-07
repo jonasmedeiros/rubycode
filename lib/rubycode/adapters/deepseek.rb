@@ -5,15 +5,18 @@ require "json"
 
 module RubyCode
   module Adapters
-    # Ollama adapter for cloud LLM integration
-    class Ollama < Base
+    # DeepSeek adapter for cloud LLM integration (OpenAI-compatible API)
+    # DeepSeek provides powerful reasoning models with competitive pricing
+    class Deepseek < Base
+      API_ENDPOINT = "https://api.deepseek.com/v1/chat/completions"
+
       def initialize(config)
         super
         validate_api_key!
       end
 
       def generate(messages:, system: nil, tools: nil)
-        uri = URI("#{@config.url}/api/chat")
+        uri = URI(API_ENDPOINT)
         payload = build_payload(messages, system, tools)
         request = build_request(uri, payload)
 
@@ -23,12 +26,8 @@ module RubyCode
 
         debug_response(body) if @config.debug
 
-        body
-      rescue AdapterError => e
-        # If model doesn't support tools, provide helpful error message
-        raise AdapterError, build_tools_error_message if tools && e.message.include?("does not support tools")
-
-        raise e
+        # Convert OpenAI format to our format
+        convert_response(body)
       end
 
       private
@@ -36,7 +35,16 @@ module RubyCode
       def validate_api_key!
         return if get_api_key
 
-        raise AdapterError, I18n.t("rubycode.errors.ollama.api_key_missing")
+        raise AdapterError, I18n.t("rubycode.errors.deepseek.api_key_missing")
+      end
+
+      def get_api_key
+        # Check database first
+        db_key = Models::ApiKey.get_key(adapter: :deepseek)
+        return db_key if db_key
+
+        # Fall back to environment variable
+        ENV.fetch("DEEPSEEK_API_KEY", nil)
       end
 
       def send_request_with_retry(uri, request)
@@ -70,9 +78,20 @@ module RubyCode
       end
 
       def build_payload(messages, system, tools)
-        payload = { model: @config.model, messages: messages, stream: false }
-        payload[:system] = system if system
+        # OpenAI format: system message goes in messages array
+        formatted_messages = messages.dup
+
+        formatted_messages.unshift({ role: "system", content: system }) if system
+
+        payload = {
+          model: @config.model,
+          messages: formatted_messages,
+          temperature: 0.7
+        }
+
+        # DeepSeek supports OpenAI function calling format
         payload[:tools] = tools if tools
+
         payload
       end
 
@@ -84,23 +103,9 @@ module RubyCode
         request
       end
 
-      def get_api_key
-        # Check database first
-        db_key = Models::ApiKey.get_key(adapter: :ollama)
-        return db_key if db_key
-
-        # Fall back to environment variable
-        ENV.fetch("OLLAMA_API_KEY", nil)
-      end
-
       def send_request(uri, request)
         response = perform_http_request(uri, request)
-        body = handle_response(response)
-
-        # Parse tool calls from content for models that use XML format (like Qwen)
-        parse_tool_calls_from_content(body) if body["message"]
-
-        body
+        handle_response(response)
       rescue Net::ReadTimeout, Net::OpenTimeout, Errno::ECONNREFUSED, Errno::ETIMEDOUT, SocketError => e
         handle_network_error(e, uri)
       rescue JSON::ParserError => e
@@ -113,7 +118,7 @@ module RubyCode
         Net::HTTP.start(
           uri.hostname,
           uri.port,
-          use_ssl: uri.scheme == "https",
+          use_ssl: true,
           read_timeout: @config.http_read_timeout,
           open_timeout: @config.http_open_timeout
         ) { |http| http.request(request) }
@@ -156,6 +161,12 @@ module RubyCode
         case response.code.to_i
         when 200..299
           body
+        when 401, 403
+          # Auth errors are not retriable
+          raise AdapterError,
+                I18n.t("rubycode.errors.adapter.auth_failed",
+                       code: response.code,
+                       adapter_name: "DEEPSEEK")
         when 429
           # Rate limit errors should be retried with backoff
           raise AdapterConnectionError,
@@ -177,10 +188,41 @@ module RubyCode
         end
       end
 
+      def convert_response(openai_response)
+        # OpenAI format: { choices: [{ message: { role, content, tool_calls } }] }
+        # Our format: { "message" => { "content" => ..., "tool_calls" => [...] } }
+
+        choice = openai_response["choices"]&.first
+        raise AdapterError, I18n.t("rubycode.errors.adapter.no_choices") unless choice
+
+        message = choice["message"]
+        raise AdapterError, I18n.t("rubycode.errors.adapter.no_message") unless message
+
+        {
+          "message" => {
+            "content" => message["content"] || "",
+            "tool_calls" => format_tool_calls(message["tool_calls"])
+          }
+        }
+      end
+
+      def format_tool_calls(openai_tool_calls)
+        return [] unless openai_tool_calls
+
+        openai_tool_calls.map do |tool_call|
+          {
+            "function" => {
+              "name" => tool_call.dig("function", "name"),
+              "arguments" => tool_call.dig("function", "arguments")
+            }
+          }
+        end
+      end
+
       def debug_request(uri, payload)
         separator = I18n.t("rubycode.debug.separator")
         puts "\n#{separator}"
-        puts I18n.t("rubycode.debug.request_title")
+        puts I18n.t("rubycode.debug.request_title_adapter", adapter: "DeepSeek")
         puts separator
         puts I18n.t("rubycode.debug.url_label", url: uri)
         puts I18n.t("rubycode.debug.model_label", model: @config.model)
@@ -192,68 +234,10 @@ module RubyCode
       def debug_response(body)
         separator = I18n.t("rubycode.debug.separator")
         puts "\n#{separator}"
-        puts I18n.t("rubycode.debug.response_title")
+        puts I18n.t("rubycode.debug.response_title_adapter", adapter: "DeepSeek")
         puts separator
         puts JSON.pretty_generate(body)
         puts "#{separator}\n"
-      end
-
-      def build_tools_error_message
-        I18n.t("rubycode.errors.tools_not_supported", model: @config.model)
-      end
-
-      # Parse <tool_call> XML tags or plain JSON from message content
-      # Some models (like Qwen) return tool calls as XML or JSON in content instead of structured format
-      def parse_tool_calls_from_content(body)
-        message = body["message"]
-        content = message["content"] || ""
-
-        return if content.empty?
-
-        tool_calls = []
-        clean_content = content.dup
-
-        # Try parsing XML-wrapped tool calls first: <tool_call>{"name": "...", "arguments": {...}}</tool_call>
-        if content.include?("<tool_call>")
-          content.scan(/<tool_call>(.*?)<\/tool_call>/m) do |match|
-            tool_call_json = match[0].strip
-            if (tool_data = parse_tool_json(tool_call_json))
-              tool_calls << convert_to_openai_format(tool_data)
-            end
-          end
-
-          # Remove all <tool_call> blocks from content
-          clean_content = content.gsub(/<tool_call>.*?<\/tool_call>/m, "").strip if tool_calls.any?
-        end
-
-        # Try parsing plain JSON tool call: {"name": "...", "arguments": {...}}
-        if tool_calls.empty? && content.strip.start_with?("{")
-          if (tool_data = parse_tool_json(content))
-            tool_calls << convert_to_openai_format(tool_data)
-            clean_content = "" # Content was a tool call, clear it
-          end
-        end
-
-        # Update message with parsed tool calls and cleaned content
-        if tool_calls.any?
-          message["tool_calls"] = tool_calls
-          message["content"] = clean_content
-        end
-      end
-
-      def parse_tool_json(json_string)
-        JSON.parse(json_string)
-      rescue JSON::ParserError
-        nil
-      end
-
-      def convert_to_openai_format(tool_data)
-        {
-          "function" => {
-            "name" => tool_data["name"],
-            "arguments" => tool_data["arguments"]
-          }
-        }
       end
     end
   end

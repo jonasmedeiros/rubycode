@@ -8,8 +8,8 @@ module RubyCode
 
     def initialize
       @adapter = :ollama
-      @url = "http://localhost:11434"
-      @model = "deepseek-r1:8b"
+      @url = "https://api.ollama.com"
+      @model = "qwen3-coder:480b-cloud"
       @root_path = Dir.pwd
       @debug = false # Set to true to see JSON requests/responses
 

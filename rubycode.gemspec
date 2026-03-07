@@ -40,6 +40,12 @@ Gem::Specification.new do |spec|
   # I18n for internationalization
   spec.add_dependency "i18n", "~> 1.14"
 
+  # Base64 encoding/decoding (required for Ruby 3.4+)
+  spec.add_dependency "base64", "~> 0.2"
+
+  # Dotenv for loading environment variables from .env file
+  spec.add_dependency "dotenv", "~> 3.1"
+
   # Nokogiri for HTML parsing in web tools
   spec.add_dependency "nokogiri", "~> 1.16"
 

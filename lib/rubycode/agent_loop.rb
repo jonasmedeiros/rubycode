@@ -80,6 +80,7 @@ module RubyCode
       @consecutive_rate_limit_errors = 0
 
       @memory.add_message(role: "assistant", content: content)
+
       [content, tool_calls]
     rescue RubyCode::AdapterRetryExhaustedError => e
       # Stop the agent loop when retries are exhausted

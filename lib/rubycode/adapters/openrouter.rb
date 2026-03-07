@@ -5,9 +5,10 @@ require "json"
 
 module RubyCode
   module Adapters
-    # Groq adapter for cloud LLM integration (OpenAI-compatible API)
-    class Groq < Base
-      API_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+    # OpenRouter adapter for cloud LLM integration (OpenAI-compatible API)
+    # Provides access to multiple LLM providers through a unified API
+    class Openrouter < Base
+      API_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
       def initialize(config)
         super
@@ -32,17 +33,18 @@ module RubyCode
       private
 
       def validate_api_key!
-        return if ENV["GROQ_API_KEY"]
+        return if get_api_key
 
-        raise AdapterError, <<~ERROR
-          GROQ_API_KEY environment variable not set.
+        raise AdapterError, I18n.t("rubycode.errors.openrouter.api_key_missing")
+      end
 
-          Get your API key:
-            https://console.groq.com/keys
+      def get_api_key
+        # Check database first
+        db_key = Models::ApiKey.get_key(adapter: :openrouter)
+        return db_key if db_key
 
-          Then set it:
-            export GROQ_API_KEY='gsk_...'
-        ERROR
+        # Fall back to environment variable
+        ENV.fetch("OPENROUTER_API_KEY", nil)
       end
 
       def send_request_with_retry(uri, request)
@@ -53,7 +55,10 @@ module RubyCode
           send_request(uri, request)
         rescue AdapterTimeoutError, AdapterConnectionError => e
           unless attempt <= @config.max_retries
-            raise AdapterRetryExhaustedError, "Failed after #{@config.max_retries} retries: #{e.message}"
+            raise AdapterRetryExhaustedError,
+                  I18n.t("rubycode.errors.adapter.retry_failed",
+                         max_retries: @config.max_retries,
+                         error: e.message)
           end
 
           delay = @config.retry_base_delay * (2**(attempt - 1))
@@ -84,7 +89,7 @@ module RubyCode
           temperature: 0.7
         }
 
-        # Groq supports OpenAI function calling format
+        # OpenRouter supports OpenAI function calling format
         payload[:tools] = tools if tools
 
         payload
@@ -93,7 +98,12 @@ module RubyCode
       def build_request(uri, payload)
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"] = "application/json"
-        request["Authorization"] = "Bearer #{ENV.fetch("GROQ_API_KEY", nil)}"
+        request["Authorization"] = "Bearer #{get_api_key}"
+
+        # Optional but recommended headers for OpenRouter
+        request["HTTP-Referer"] = "https://github.com/jonasmedeiros/rubycode"
+        request["X-Title"] = "RubyCode"
+
         request.body = payload.to_json
         request
       end
@@ -104,9 +114,9 @@ module RubyCode
       rescue Net::ReadTimeout, Net::OpenTimeout, Errno::ECONNREFUSED, Errno::ETIMEDOUT, SocketError => e
         handle_network_error(e, uri)
       rescue JSON::ParserError => e
-        raise AdapterError, "Invalid JSON response from server: #{e.message}"
+        raise AdapterError, I18n.t("rubycode.errors.adapter.invalid_json", error: e.message)
       rescue StandardError => e
-        raise AdapterError, "Unexpected error: #{e.message}"
+        raise AdapterError, I18n.t("rubycode.errors.adapter.unexpected_error", error: e.message)
       end
 
       def perform_http_request(uri, request)
@@ -122,15 +132,30 @@ module RubyCode
       def handle_network_error(error, uri)
         case error
         when Net::ReadTimeout
-          raise AdapterTimeoutError, "Request timed out after #{@config.http_read_timeout}s: #{error.message}"
+          raise AdapterTimeoutError,
+                I18n.t("rubycode.errors.adapter.read_timeout",
+                       timeout: @config.http_read_timeout,
+                       error: error.message)
         when Net::OpenTimeout
-          raise AdapterTimeoutError, "Connection timed out after #{@config.http_open_timeout}s: #{error.message}"
+          raise AdapterTimeoutError,
+                I18n.t("rubycode.errors.adapter.open_timeout",
+                       timeout: @config.http_open_timeout,
+                       error: error.message)
         when Errno::ECONNREFUSED
-          raise AdapterConnectionError, "Connection refused to #{uri}: #{error.message}"
+          raise AdapterConnectionError,
+                I18n.t("rubycode.errors.adapter.connection_refused",
+                       uri: uri,
+                       error: error.message)
         when Errno::ETIMEDOUT
-          raise AdapterConnectionError, "Connection timed out to #{uri}: #{error.message}"
+          raise AdapterConnectionError,
+                I18n.t("rubycode.errors.adapter.connection_timeout",
+                       uri: uri,
+                       error: error.message)
         when SocketError
-          raise AdapterConnectionError, "Cannot resolve host #{uri.hostname}: #{error.message}"
+          raise AdapterConnectionError,
+                I18n.t("rubycode.errors.adapter.host_unreachable",
+                       hostname: uri.hostname,
+                       error: error.message)
         end
       end
 
@@ -143,16 +168,28 @@ module RubyCode
           body
         when 401, 403
           # Auth errors are not retriable
-          raise AdapterError, "Authentication failed (#{response.code}): Check your GROQ_API_KEY"
+          raise AdapterError,
+                I18n.t("rubycode.errors.adapter.auth_failed",
+                       code: response.code,
+                       adapter_name: "OPENROUTER")
         when 429
           # Rate limit errors should be retried with backoff
-          raise AdapterConnectionError, "Rate limited (#{response.code}): #{response.message}"
+          raise AdapterConnectionError,
+                I18n.t("rubycode.errors.adapter.rate_limited",
+                       code: response.code,
+                       message: response.message)
         when 500..599
           # Server errors are retriable
-          raise AdapterConnectionError, "Server error (#{response.code}): #{response.message}"
+          raise AdapterConnectionError,
+                I18n.t("rubycode.errors.adapter.server_error",
+                       code: response.code,
+                       message: response.message)
         else
           # Client errors are not retriable
-          raise AdapterError, "HTTP error (#{response.code}): #{response.message}"
+          raise AdapterError,
+                I18n.t("rubycode.errors.adapter.http_error",
+                       code: response.code,
+                       message: response.message)
         end
       end
 
@@ -161,10 +198,10 @@ module RubyCode
         # Our format: { "message" => { "content" => ..., "tool_calls" => [...] } }
 
         choice = openai_response["choices"]&.first
-        raise AdapterError, "No choices in response" unless choice
+        raise AdapterError, I18n.t("rubycode.errors.adapter.no_choices") unless choice
 
         message = choice["message"]
-        raise AdapterError, "No message in choice" unless message
+        raise AdapterError, I18n.t("rubycode.errors.adapter.no_message") unless message
 
         {
           "message" => {
@@ -188,22 +225,24 @@ module RubyCode
       end
 
       def debug_request(uri, payload)
-        puts "\n#{"=" * 80}"
-        puts "📤 REQUEST TO LLM (Groq)"
-        puts "=" * 80
-        puts "URL: #{uri}"
-        puts "Model: #{@config.model}"
-        puts "\nPayload:"
+        separator = I18n.t("rubycode.debug.separator")
+        puts "\n#{separator}"
+        puts I18n.t("rubycode.debug.request_title_adapter", adapter: "OpenRouter")
+        puts separator
+        puts I18n.t("rubycode.debug.url_label", url: uri)
+        puts I18n.t("rubycode.debug.model_label", model: @config.model)
+        puts "\n#{I18n.t("rubycode.debug.payload_label")}"
         puts JSON.pretty_generate(payload)
-        puts "=" * 80
+        puts separator
       end
 
       def debug_response(body)
-        puts "\n#{"=" * 80}"
-        puts "📥 RESPONSE FROM LLM (Groq)"
-        puts "=" * 80
+        separator = I18n.t("rubycode.debug.separator")
+        puts "\n#{separator}"
+        puts I18n.t("rubycode.debug.response_title_adapter", adapter: "OpenRouter")
+        puts separator
         puts JSON.pretty_generate(body)
-        puts "#{"=" * 80}\n"
+        puts "#{separator}\n"
       end
     end
   end

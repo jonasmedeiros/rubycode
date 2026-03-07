@@ -44,8 +44,24 @@ module RubyCode
 
       def execute_command(command)
         Dir.chdir(root_path) do
-          output = `#{command} 2>&1`
-          exit_code = $CHILD_STATUS.exitstatus
+          require "open3"
+
+          output_lines = []
+          exit_code = 0
+
+          # Stream output in real-time, wait for command to finish naturally
+          Open3.popen2e(command, stdin_data: "") do |stdin, stdout_err, wait_thr|
+            stdin.close # Close stdin to prevent interactive prompts
+
+            stdout_err.each_line do |line|
+              print line # Show output in real-time
+              output_lines << line
+            end
+
+            exit_code = wait_thr.value.exitstatus
+          end
+
+          output = output_lines.join
 
           raise CommandExecutionError, "Command failed with exit code #{exit_code}:\n#{output}" unless exit_code.zero?
 

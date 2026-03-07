@@ -11,7 +11,115 @@ en:
       subtitle: "AI Ruby/Rails Code Assistant"
       built_with: "Built with: %{stack}"
       stack: "Ollama + DeepSeek + TTY Toolkit"
-      commands: "Commands: exit, quit, clear"
+      commands: "Commands: exit, quit, clear, config"
+
+    setup:
+      title: "🔧 Configuration Setup"
+      first_time: "👋 First-time setup!"
+      adapter_prompt: "Select LLM provider:"
+      model_prompt: "Select model:"
+      custom_model_prompt: "Enter model name:"
+      url_prompt: "Ollama URL:"
+      api_key_prompt: "%{adapter} API Key:"
+      api_key_optional: "(press Enter to use environment variable)"
+      api_key_missing: "⚠️  %{adapter}_API_KEY not set!"
+      api_key_help: "Get your key: %{url}\nThen either:\n  1. Set environment variable: export %{env_var}='...'\n  2. Enter it when prompted during setup"
+      api_key_required: "API key is required to continue."
+      use_saved_api_key: "Use saved %{adapter} API key?"
+      save_env_key_to_db: "Save %{adapter} API key from environment to database?"
+      config_saved: "✓ Configuration saved to %{path}"
+      use_saved: "Use saved configuration (%{adapter}/%{model})?"
+      reconfigure: "Reconfigure?"
+      restart_message: "Restart rubycode to apply new configuration."
+      configure_exa: "Configure Exa.ai for web search? (Optional - AI-native search, requires API key)"
+
+    models:
+      ollama:
+        default: "qwen3-coder:480b-cloud"
+        powerful:
+          name: "qwen3-coder:480b-cloud"
+          label: "Qwen3 Coder 480B (Best for coding, cloud)"
+        advanced:
+          name: "gpt-oss:120b-cloud"
+          label: "GPT-OSS 120B (Reasoning, cloud)"
+        reasoning:
+          name: "deepseek-v3.1:671b-cloud"
+          label: "DeepSeek v3.1 671B (Advanced reasoning, cloud)"
+        fast:
+          name: "gpt-oss:20b-cloud"
+          label: "GPT-OSS 20B (Fast, cloud)"
+      deepseek:
+        default: "deepseek-chat"
+        fast:
+          name: "deepseek-chat"
+          label: "DeepSeek Chat (Fast, reasoning)"
+        reasoning:
+          name: "deepseek-reasoner"
+          label: "DeepSeek Reasoner (Advanced, chain-of-thought)"
+      gemini:
+        default: "gemini-2.5-flash"
+        fast:
+          name: "gemini-2.5-flash"
+          label: "Gemini 2.5 Flash (Fast, latest)"
+        lite:
+          name: "gemini-2.5-flash-lite"
+          label: "Gemini 2.5 Flash Lite (Fastest)"
+        powerful:
+          name: "gemini-2.5-pro"
+          label: "Gemini 2.5 Pro (Most capable)"
+        experimental:
+          name: "gemini-3-flash-preview"
+          label: "Gemini 3 Flash Preview (Experimental)"
+      openai:
+        default: "gpt-4o"
+        fast:
+          name: "gpt-4o-mini"
+          label: "GPT-4o Mini (Fast, cheap)"
+        balanced:
+          name: "gpt-4o"
+          label: "GPT-4o (Balanced)"
+        reasoning:
+          name: "o1"
+          label: "O1 (Advanced reasoning)"
+      openrouter:
+        default: "anthropic/claude-sonnet-4.5"
+        fast:
+          name: "anthropic/claude-haiku-4.5"
+          label: "Claude 4.5 Haiku (Fast, cheap)"
+        balanced:
+          name: "anthropic/claude-sonnet-4.5"
+          label: "Claude 4.5 Sonnet (Balanced)"
+        powerful:
+          name: "anthropic/claude-opus-4.6"
+          label: "Claude 4.6 Opus (Most capable)"
+        alternative:
+          name: "openai/gpt-4o"
+          label: "GPT-4o (OpenAI)"
+    adapters:
+      ollama:
+        name: "Ollama (Cloud)"
+        api_key_url: "https://ollama.ai/"
+        requires_key: true
+      deepseek:
+        name: "DeepSeek (Cloud - Reasoning Models)"
+        api_key_url: "https://platform.deepseek.com/api_keys"
+        requires_key: true
+      gemini:
+        name: "Google Gemini (Cloud - Multimodal)"
+        api_key_url: "https://makersuite.google.com/app/apikey"
+        requires_key: true
+      openai:
+        name: "OpenAI (Cloud - GPT Models)"
+        api_key_url: "https://platform.openai.com/api-keys"
+        requires_key: true
+      openrouter:
+        name: "OpenRouter (Cloud - Multiple Models)"
+        api_key_url: "https://openrouter.ai/keys"
+        requires_key: true
+      exa:
+        name: "Exa.ai (Web Search)"
+        api_key_url: "https://exa.ai/api"
+        requires_key: true
 
     approval:
       bash:
@@ -69,6 +177,16 @@ en:
       debug_prefix: "[DEBUG]"
       error_prefix: "[ERROR]"
 
+    debug:
+      request_title: "📤 REQUEST TO LLM"
+      request_title_adapter: "📤 REQUEST TO LLM (%{adapter})"
+      response_title: "📥 RESPONSE FROM LLM"
+      response_title_adapter: "📥 RESPONSE FROM LLM (%{adapter})"
+      url_label: "URL: %{url}"
+      model_label: "Model: %{model}"
+      payload_label: "Payload:"
+      separator: "================================================================================"
+
     errors:
       unknown_adapter: "Unknown Adapter"
       file_not_found: "File '%{path}' not found"
@@ -91,3 +209,86 @@ en:
       network_error: "Network error: %{message}"
       http_error: "HTTP %{code}: %{message}"
       url_error: "Invalid URL: %{url}"
+      tools_not_supported: |
+        Model '%{model}' does not support tool calling.
+
+        RubyCode requires a model with function/tool calling capabilities.
+
+        Suggested models that support tools:
+        • qwen2.5-coder:7b    (pull with: ollama pull qwen2.5-coder:7b)
+        • llama3.1:8b         (pull with: ollama pull llama3.1:8b)
+        • mistral:7b          (pull with: ollama pull mistral:7b)
+
+        Update your configuration in lib/rubycode/configuration.rb to use a compatible model.
+
+      # Adapter-specific errors
+      adapter:
+        retry_failed: "Failed after %{max_retries} retries: %{error}"
+        invalid_json: "Invalid JSON response from server: %{error}"
+        unexpected_error: "Unexpected error: %{error}"
+        read_timeout: "Request timed out after %{timeout}s: %{error}"
+        open_timeout: "Connection timed out after %{timeout}s: %{error}"
+        connection_refused: "Connection refused to %{uri}: %{error}"
+        connection_timeout: "Connection timed out to %{uri}: %{error}"
+        host_unreachable: "Cannot resolve host %{hostname}: %{error}"
+        rate_limited: "Rate limited (%{code}): %{message}"
+        server_error: "Server error (%{code}): %{message}"
+        http_error: "HTTP error (%{code}): %{message}"
+        auth_failed: "Authentication failed (%{code}): Check your %{adapter_name}_API_KEY"
+        no_choices: "No choices in response"
+        no_message: "No message in choice"
+
+      # Gemini-specific errors
+      gemini:
+        api_key_missing: |
+          GEMINI_API_KEY environment variable not set.
+
+          Get your API key:
+            https://makersuite.google.com/app/apikey
+
+          Then set it:
+            export GEMINI_API_KEY='...'
+
+      # OpenAI-specific errors
+      openai:
+        api_key_missing: |
+          OPENAI_API_KEY environment variable not set.
+
+          Get your API key:
+            https://platform.openai.com/api-keys
+
+          Then set it:
+            export OPENAI_API_KEY='sk-...'
+
+      # OpenRouter-specific errors
+      openrouter:
+        api_key_missing: |
+          OPENROUTER_API_KEY environment variable not set.
+
+          Get your API key:
+            https://openrouter.ai/keys
+
+          Then set it:
+            export OPENROUTER_API_KEY='sk-or-v1-...'
+
+      # Ollama-specific errors
+      ollama:
+        api_key_missing: |
+          OLLAMA_API_KEY environment variable not set.
+
+          Get your API key:
+            https://ollama.ai/
+
+          Then set it:
+            export OLLAMA_API_KEY='your-api-key'
+
+      # DeepSeek-specific errors
+      deepseek:
+        api_key_missing: |
+          DEEPSEEK_API_KEY environment variable not set.
+
+          Get your API key:
+            https://platform.deepseek.com/api_keys
+
+          Then set it:
+            export DEEPSEEK_API_KEY='sk-...'

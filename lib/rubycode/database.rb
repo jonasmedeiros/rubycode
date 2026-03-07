@@ -35,6 +35,7 @@ module RubyCode
 
       def run_migrations
         create_messages_table
+        create_api_keys_table
       end
 
       def create_messages_table
@@ -43,6 +44,17 @@ module RubyCode
           String :role, null: false
           String :content, null: false, text: true
           DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+        end
+      end
+
+      def create_api_keys_table
+        @db.create_table?(:api_keys) do
+          primary_key :id
+          String :adapter, null: false, unique: true
+          String :encrypted_key, null: false, text: true
+          String :iv, null: false # Initialization vector for encryption
+          DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
+          DateTime :updated_at, default: Sequel::CURRENT_TIMESTAMP
         end
       end
     end
