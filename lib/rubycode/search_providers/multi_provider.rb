@@ -4,8 +4,11 @@ module RubyCode
   module SearchProviders
     # Multi-provider search with automatic fallback
     class MultiProvider
+      attr_reader :last_used_provider
+
       def initialize(providers: [])
         @providers = providers
+        @last_used_provider = nil
       end
 
       def search(query, max_results: 5)
@@ -13,7 +16,10 @@ module RubyCode
 
         @providers.each do |provider|
           results = provider.search(query, max_results: max_results)
-          return results if results && !results.empty?
+          if results && !results.empty?
+            @last_used_provider = provider.class.name.split("::").last
+            return results
+          end
         rescue StandardError => e
           last_error = e
           # Continue to next provider
@@ -23,6 +29,7 @@ module RubyCode
         raise last_error if last_error
 
         # If no error but no results, return empty array
+        @last_used_provider = nil
         []
       end
 

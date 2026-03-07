@@ -39,25 +39,27 @@ module RubyCode
 
       def fetch_and_parse_results(query, max_results)
         # Initialize multi-provider with fallback strategy
-        multi = SearchProviders::MultiProvider.new
+        @multi_provider = SearchProviders::MultiProvider.new
 
         # Primary: Exa.ai (AI-native search, PAID with free tier)
         exa_api_key = Models::ApiKey.get_key(adapter: :exa) || ENV.fetch("EXA_API_KEY", nil)
-        multi.add_provider(SearchProviders::ExaAi.new(api_key: exa_api_key)) if exa_api_key && !exa_api_key.empty?
+        if exa_api_key && !exa_api_key.empty?
+          @multi_provider.add_provider(SearchProviders::ExaAi.new(api_key: exa_api_key))
+        end
 
         # Fallback 1: DuckDuckGo Instant API (FREE)
-        multi.add_provider(SearchProviders::DuckduckgoInstant.new)
+        @multi_provider.add_provider(SearchProviders::DuckduckgoInstant.new)
 
         # Fallback 2: Brave Search API (PAID, if configured)
         brave_api_key = ENV.fetch("BRAVE_API_KEY", nil)
         if brave_api_key && !brave_api_key.empty?
-          multi.add_provider(SearchProviders::BraveSearch.new(
-                               api_key: brave_api_key
-                             ))
+          @multi_provider.add_provider(SearchProviders::BraveSearch.new(
+                                         api_key: brave_api_key
+                                       ))
         end
 
         # Search with automatic fallback
-        multi.search(query, max_results: max_results * 2) # Get more to filter
+        @multi_provider.search(query, max_results: max_results * 2) # Get more to filter
       rescue StandardError => e
         raise ToolError, "All search providers failed: #{e.message}"
       end
@@ -105,7 +107,8 @@ module RubyCode
           content: formatted.strip,
           metadata: {
             result_count: results.size,
-            results: results
+            results: results,
+            provider: @multi_provider&.last_used_provider || "Search"
           }
         )
       end
