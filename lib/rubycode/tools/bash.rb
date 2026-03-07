@@ -50,7 +50,7 @@ module RubyCode
           exit_code = 0
 
           # Stream output in real-time, wait for command to finish naturally
-          Open3.popen2e(command, stdin_data: "") do |stdin, stdout_err, wait_thr|
+          Open3.popen2e(command) do |stdin, stdout_err, wait_thr|
             stdin.close # Close stdin to prevent interactive prompts
 
             stdout_err.each_line do |line|
