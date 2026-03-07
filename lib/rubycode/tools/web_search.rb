@@ -42,16 +42,14 @@ module RubyCode
         multi = SearchProviders::MultiProvider.new
 
         # Primary: Exa.ai (AI-native search, PAID with free tier)
-        exa_api_key = Models::ApiKey.get_key(adapter: :exa) || ENV["EXA_API_KEY"]
-        if exa_api_key && !exa_api_key.empty?
-          multi.add_provider(SearchProviders::ExaAi.new(api_key: exa_api_key))
-        end
+        exa_api_key = Models::ApiKey.get_key(adapter: :exa) || ENV.fetch("EXA_API_KEY", nil)
+        multi.add_provider(SearchProviders::ExaAi.new(api_key: exa_api_key)) if exa_api_key && !exa_api_key.empty?
 
         # Fallback 1: DuckDuckGo Instant API (FREE)
         multi.add_provider(SearchProviders::DuckduckgoInstant.new)
 
         # Fallback 2: Brave Search API (PAID, if configured)
-        brave_api_key = ENV["BRAVE_API_KEY"]
+        brave_api_key = ENV.fetch("BRAVE_API_KEY", nil)
         if brave_api_key && !brave_api_key.empty?
           multi.add_provider(SearchProviders::BraveSearch.new(
                                api_key: brave_api_key

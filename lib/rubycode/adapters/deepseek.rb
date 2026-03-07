@@ -15,70 +15,18 @@ module RubyCode
         validate_api_key!
       end
 
-      def generate(messages:, system: nil, tools: nil)
-        uri = URI(API_ENDPOINT)
-        payload = build_payload(messages, system, tools)
-        request = build_request(uri, payload)
-
-        debug_request(uri, payload) if @config.debug
-
-        body = send_request_with_retry(uri, request)
-
-        debug_response(body) if @config.debug
-
-        # Convert OpenAI format to our format
-        convert_response(body)
-      end
-
       private
 
-      def validate_api_key!
-        return if get_api_key
-
-        raise AdapterError, I18n.t("rubycode.errors.deepseek.api_key_missing")
+      def adapter_name
+        "DeepSeek"
       end
 
-      def get_api_key
-        # Check database first
-        db_key = Models::ApiKey.get_key(adapter: :deepseek)
-        return db_key if db_key
-
-        # Fall back to environment variable
-        ENV.fetch("DEEPSEEK_API_KEY", nil)
-      end
-
-      def send_request_with_retry(uri, request)
-        attempt = 0
-
-        begin
-          attempt += 1
-          send_request(uri, request)
-        rescue AdapterTimeoutError, AdapterConnectionError => e
-          unless attempt <= @config.max_retries
-            raise AdapterRetryExhaustedError,
-                  I18n.t("rubycode.errors.adapter.retry_failed",
-                         max_retries: @config.max_retries,
-                         error: e.message)
-          end
-
-          delay = @config.retry_base_delay * (2**(attempt - 1))
-          display_retry_status(attempt, @config.max_retries, delay, e)
-          sleep(delay)
-          retry
-        end
-      end
-
-      def display_retry_status(attempt, max_retries, delay, error)
-        puts Views::AgentLoop::RetryStatus.build(
-          attempt: attempt,
-          max_retries: max_retries,
-          delay: delay,
-          error: error.message
-        )
+      def api_endpoint
+        API_ENDPOINT
       end
 
       def build_payload(messages, system, tools)
-        # OpenAI format: system message goes in messages array
+        # OpenAI-compatible format: system message goes in messages array
         formatted_messages = messages.dup
 
         formatted_messages.unshift({ role: "system", content: system }) if system
@@ -89,7 +37,7 @@ module RubyCode
           temperature: 0.7
         }
 
-        # DeepSeek supports OpenAI function calling format
+        # DeepSeek supports function calling format
         payload[:tools] = tools if tools
 
         payload
@@ -98,101 +46,17 @@ module RubyCode
       def build_request(uri, payload)
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"] = "application/json"
-        request["Authorization"] = "Bearer #{get_api_key}"
+        request["Authorization"] = "Bearer #{api_key}"
         request.body = payload.to_json
         request
       end
 
-      def send_request(uri, request)
-        response = perform_http_request(uri, request)
-        handle_response(response)
-      rescue Net::ReadTimeout, Net::OpenTimeout, Errno::ECONNREFUSED, Errno::ETIMEDOUT, SocketError => e
-        handle_network_error(e, uri)
-      rescue JSON::ParserError => e
-        raise AdapterError, I18n.t("rubycode.errors.adapter.invalid_json", error: e.message)
-      rescue StandardError => e
-        raise AdapterError, I18n.t("rubycode.errors.adapter.unexpected_error", error: e.message)
-      end
-
-      def perform_http_request(uri, request)
-        Net::HTTP.start(
-          uri.hostname,
-          uri.port,
-          use_ssl: true,
-          read_timeout: @config.http_read_timeout,
-          open_timeout: @config.http_open_timeout
-        ) { |http| http.request(request) }
-      end
-
-      def handle_network_error(error, uri)
-        case error
-        when Net::ReadTimeout
-          raise AdapterTimeoutError,
-                I18n.t("rubycode.errors.adapter.read_timeout",
-                       timeout: @config.http_read_timeout,
-                       error: error.message)
-        when Net::OpenTimeout
-          raise AdapterTimeoutError,
-                I18n.t("rubycode.errors.adapter.open_timeout",
-                       timeout: @config.http_open_timeout,
-                       error: error.message)
-        when Errno::ECONNREFUSED
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.connection_refused",
-                       uri: uri,
-                       error: error.message)
-        when Errno::ETIMEDOUT
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.connection_timeout",
-                       uri: uri,
-                       error: error.message)
-        when SocketError
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.host_unreachable",
-                       hostname: uri.hostname,
-                       error: error.message)
-        end
-      end
-
-      def handle_response(response)
-        body = JSON.parse(response.body)
-
-        # Check for HTTP errors
-        case response.code.to_i
-        when 200..299
-          body
-        when 401, 403
-          # Auth errors are not retriable
-          raise AdapterError,
-                I18n.t("rubycode.errors.adapter.auth_failed",
-                       code: response.code,
-                       adapter_name: "DEEPSEEK")
-        when 429
-          # Rate limit errors should be retried with backoff
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.rate_limited",
-                       code: response.code,
-                       message: response.message)
-        when 500..599
-          # Server errors are retriable
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.server_error",
-                       code: response.code,
-                       message: response.message)
-        else
-          # Client errors are not retriable
-          raise AdapterError,
-                I18n.t("rubycode.errors.adapter.http_error",
-                       code: response.code,
-                       message: response.message)
-        end
-      end
-
-      def convert_response(openai_response)
-        # OpenAI format: { choices: [{ message: { role, content, tool_calls } }] }
+      def convert_response(deepseek_response)
+        # DeepSeek uses OpenAI-compatible format
+        # Format: { choices: [{ message: { role, content, tool_calls } }] }
         # Our format: { "message" => { "content" => ..., "tool_calls" => [...] } }
 
-        choice = openai_response["choices"]&.first
+        choice = deepseek_response["choices"]&.first
         raise AdapterError, I18n.t("rubycode.errors.adapter.no_choices") unless choice
 
         message = choice["message"]
@@ -206,10 +70,10 @@ module RubyCode
         }
       end
 
-      def format_tool_calls(openai_tool_calls)
-        return [] unless openai_tool_calls
+      def format_tool_calls(tool_calls)
+        return [] unless tool_calls
 
-        openai_tool_calls.map do |tool_call|
+        tool_calls.map do |tool_call|
           {
             "function" => {
               "name" => tool_call.dig("function", "name"),
@@ -217,27 +81,6 @@ module RubyCode
             }
           }
         end
-      end
-
-      def debug_request(uri, payload)
-        separator = I18n.t("rubycode.debug.separator")
-        puts "\n#{separator}"
-        puts I18n.t("rubycode.debug.request_title_adapter", adapter: "DeepSeek")
-        puts separator
-        puts I18n.t("rubycode.debug.url_label", url: uri)
-        puts I18n.t("rubycode.debug.model_label", model: @config.model)
-        puts "\n#{I18n.t("rubycode.debug.payload_label")}"
-        puts JSON.pretty_generate(payload)
-        puts separator
-      end
-
-      def debug_response(body)
-        separator = I18n.t("rubycode.debug.separator")
-        puts "\n#{separator}"
-        puts I18n.t("rubycode.debug.response_title_adapter", adapter: "DeepSeek")
-        puts separator
-        puts JSON.pretty_generate(body)
-        puts "#{separator}\n"
       end
     end
   end

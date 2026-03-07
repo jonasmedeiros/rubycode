@@ -12,28 +12,23 @@ module RubyCode
           metadata = result.metadata || {}
           count = metadata[:result_count] || 0
           results = metadata[:results] || []
+          provider = metadata[:provider] || "Search"
 
           lines = [
             "",
-            "   #{pastel.cyan("✓")} Found #{count} result(s):"
+            "   #{pastel.cyan("✓")} Found #{count} result(s) from #{provider}:",
+            ""
           ]
 
-          # Show first 3 results
-          results.first(3).each_with_index do |item, idx|
-            lines << pastel.dim("     #{idx + 1}. #{item[:title]}")
-            lines << pastel.dim("        #{truncate(item[:url], 70)}")
+          # Show ALL results with full URLs
+          results.each_with_index do |item, idx|
+            lines << "   #{pastel.bold("#{idx + 1}. #{item[:title]}")}"
+            lines << pastel.cyan("      #{item[:url]}")
+            lines << pastel.dim("      #{item[:snippet]}") if item[:snippet] && !item[:snippet].empty?
+            lines << ""
           end
 
-          lines << pastel.dim("     ...") if results.length > 3
-          lines << ""
-
           lines.join("\n")
-        end
-
-        def self.truncate(text, max_length)
-          return text if text.length <= max_length
-
-          "#{text[0...(max_length - 3)]}..."
         end
       end
     end

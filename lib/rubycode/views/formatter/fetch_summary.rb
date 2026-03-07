@@ -9,17 +9,26 @@ module RubyCode
       class FetchSummary
         def self.build(result:)
           pastel = Pastel.new
+          metadata = result.metadata || {}
+          url = metadata[:url] || "Unknown URL"
           content = result.content || ""
           size_kb = (content.bytesize / 1024.0).round(1)
+          size_bytes = content.bytesize
 
           lines = [
             "",
-            "   #{pastel.cyan("✓")} Fetched content: #{size_kb} KB"
+            "   #{pastel.cyan("📥")} Fetched from: #{pastel.bold(url)}",
+            "   #{pastel.dim("Status:")} Success",
+            "   #{pastel.dim("Size:")} #{size_kb} KB (#{size_bytes} bytes)"
           ]
 
           # Show first line preview if available
           first_line = content.lines.first&.strip || ""
-          lines << pastel.dim("     Preview: #{truncate(first_line, 80)}") if first_line.length.positive?
+          if first_line.length.positive?
+            lines << ""
+            lines << pastel.dim("   Preview:")
+            lines << pastel.dim("   #{truncate(first_line, 100)}")
+          end
 
           lines << ""
 

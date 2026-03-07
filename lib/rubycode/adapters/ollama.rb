@@ -13,7 +13,7 @@ module RubyCode
       end
 
       def generate(messages:, system: nil, tools: nil)
-        uri = URI("#{@config.url}/api/chat")
+        uri = build_uri
         payload = build_payload(messages, system, tools)
         request = build_request(uri, payload)
 
@@ -33,40 +33,17 @@ module RubyCode
 
       private
 
-      def validate_api_key!
-        return if get_api_key
-
-        raise AdapterError, I18n.t("rubycode.errors.ollama.api_key_missing")
+      def adapter_name
+        "Ollama"
       end
 
-      def send_request_with_retry(uri, request)
-        attempt = 0
-
-        begin
-          attempt += 1
-          send_request(uri, request)
-        rescue AdapterTimeoutError, AdapterConnectionError => e
-          unless attempt <= @config.max_retries
-            raise AdapterRetryExhaustedError,
-                  I18n.t("rubycode.errors.adapter.retry_failed",
-                         max_retries: @config.max_retries,
-                         error: e.message)
-          end
-
-          delay = @config.retry_base_delay * (2**(attempt - 1))
-          display_retry_status(attempt, @config.max_retries, delay, e)
-          sleep(delay)
-          retry
-        end
+      def api_endpoint
+        # Not used - Ollama uses build_uri override
+        "#{@config.url}/api/chat"
       end
 
-      def display_retry_status(attempt, max_retries, delay, error)
-        puts Views::AgentLoop::RetryStatus.build(
-          attempt: attempt,
-          max_retries: max_retries,
-          delay: delay,
-          error: error.message
-        )
+      def build_uri
+        URI("#{@config.url}/api/chat")
       end
 
       def build_payload(messages, system, tools)
@@ -79,18 +56,15 @@ module RubyCode
       def build_request(uri, payload)
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"] = "application/json"
-        request["Authorization"] = "Bearer #{get_api_key}"
+        request["Authorization"] = "Bearer #{api_key}"
         request.body = payload.to_json
         request
       end
 
-      def get_api_key
-        # Check database first
-        db_key = Models::ApiKey.get_key(adapter: :ollama)
-        return db_key if db_key
-
-        # Fall back to environment variable
-        ENV.fetch("OLLAMA_API_KEY", nil)
+      def convert_response(_raw_response)
+        # Ollama returns the body directly in the right format
+        # No conversion needed
+        raise NotImplementedError, "Ollama doesn't use convert_response"
       end
 
       def send_request(uri, request)
@@ -107,95 +81,6 @@ module RubyCode
         raise AdapterError, I18n.t("rubycode.errors.adapter.invalid_json", error: e.message)
       rescue StandardError => e
         raise AdapterError, I18n.t("rubycode.errors.adapter.unexpected_error", error: e.message)
-      end
-
-      def perform_http_request(uri, request)
-        Net::HTTP.start(
-          uri.hostname,
-          uri.port,
-          use_ssl: uri.scheme == "https",
-          read_timeout: @config.http_read_timeout,
-          open_timeout: @config.http_open_timeout
-        ) { |http| http.request(request) }
-      end
-
-      def handle_network_error(error, uri)
-        case error
-        when Net::ReadTimeout
-          raise AdapterTimeoutError,
-                I18n.t("rubycode.errors.adapter.read_timeout",
-                       timeout: @config.http_read_timeout,
-                       error: error.message)
-        when Net::OpenTimeout
-          raise AdapterTimeoutError,
-                I18n.t("rubycode.errors.adapter.open_timeout",
-                       timeout: @config.http_open_timeout,
-                       error: error.message)
-        when Errno::ECONNREFUSED
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.connection_refused",
-                       uri: uri,
-                       error: error.message)
-        when Errno::ETIMEDOUT
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.connection_timeout",
-                       uri: uri,
-                       error: error.message)
-        when SocketError
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.host_unreachable",
-                       hostname: uri.hostname,
-                       error: error.message)
-        end
-      end
-
-      def handle_response(response)
-        body = JSON.parse(response.body)
-
-        # Check for HTTP errors
-        case response.code.to_i
-        when 200..299
-          body
-        when 429
-          # Rate limit errors should be retried with backoff
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.rate_limited",
-                       code: response.code,
-                       message: response.message)
-        when 500..599
-          # Server errors are retriable
-          raise AdapterConnectionError,
-                I18n.t("rubycode.errors.adapter.server_error",
-                       code: response.code,
-                       message: response.message)
-        else
-          # Client errors are not retriable
-          raise AdapterError,
-                I18n.t("rubycode.errors.adapter.http_error",
-                       code: response.code,
-                       message: response.message)
-        end
-      end
-
-      def debug_request(uri, payload)
-        separator = I18n.t("rubycode.debug.separator")
-        puts "\n#{separator}"
-        puts I18n.t("rubycode.debug.request_title")
-        puts separator
-        puts I18n.t("rubycode.debug.url_label", url: uri)
-        puts I18n.t("rubycode.debug.model_label", model: @config.model)
-        puts "\n#{I18n.t("rubycode.debug.payload_label")}"
-        puts JSON.pretty_generate(payload)
-        puts separator
-      end
-
-      def debug_response(body)
-        separator = I18n.t("rubycode.debug.separator")
-        puts "\n#{separator}"
-        puts I18n.t("rubycode.debug.response_title")
-        puts separator
-        puts JSON.pretty_generate(body)
-        puts "#{separator}\n"
       end
 
       def build_tools_error_message
@@ -215,30 +100,27 @@ module RubyCode
 
         # Try parsing XML-wrapped tool calls first: <tool_call>{"name": "...", "arguments": {...}}</tool_call>
         if content.include?("<tool_call>")
-          content.scan(/<tool_call>(.*?)<\/tool_call>/m) do |match|
+          content.scan(%r{<tool_call>(.*?)</tool_call>}m) do |match|
             tool_call_json = match[0].strip
-            if (tool_data = parse_tool_json(tool_call_json))
-              tool_calls << convert_to_openai_format(tool_data)
-            end
+            tool_data = parse_tool_json(tool_call_json)
+            tool_calls << convert_to_openai_format(tool_data) if tool_data
           end
 
           # Remove all <tool_call> blocks from content
-          clean_content = content.gsub(/<tool_call>.*?<\/tool_call>/m, "").strip if tool_calls.any?
+          clean_content = content.gsub(%r{<tool_call>.*?</tool_call>}m, "").strip if tool_calls.any?
         end
 
         # Try parsing plain JSON tool call: {"name": "...", "arguments": {...}}
-        if tool_calls.empty? && content.strip.start_with?("{")
-          if (tool_data = parse_tool_json(content))
-            tool_calls << convert_to_openai_format(tool_data)
-            clean_content = "" # Content was a tool call, clear it
-          end
+        if tool_calls.empty? && content.strip.start_with?("{") && (tool_data = parse_tool_json(content))
+          tool_calls << convert_to_openai_format(tool_data)
+          clean_content = "" # Content was a tool call, clear it
         end
 
         # Update message with parsed tool calls and cleaned content
-        if tool_calls.any?
-          message["tool_calls"] = tool_calls
-          message["content"] = clean_content
-        end
+        return unless tool_calls.any?
+
+        message["tool_calls"] = tool_calls
+        message["content"] = clean_content
       end
 
       def parse_tool_json(json_string)

@@ -3,47 +3,45 @@
 require "net/http"
 require "uri"
 require "json"
+require_relative "base"
 
 module RubyCode
   module SearchProviders
     # Brave Search API provider
     # https://brave.com/search/api/
-    class BraveSearch
+    class BraveSearch < Base
       API_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 
-      def initialize(api_key:)
-        @api_key = api_key
-      end
-
-      def search(query, max_results: 5)
-        uri = build_uri(query, max_results)
-        response = make_request(uri)
-
-        parse_results(response.body)
+      def initialize(api_key: nil, config: nil)
+        super(config: config, api_key: api_key)
       end
 
       private
 
-      def build_uri(query, max_results)
-        URI(API_ENDPOINT).tap do |uri|
-          uri.query = URI.encode_www_form(
+      def provider_name
+        "BraveSearch"
+      end
+
+      def requires_api_key?
+        true
+      end
+
+      def build_request(query, max_results)
+        uri = URI(API_ENDPOINT).tap do |u|
+          u.query = URI.encode_www_form(
             q: query,
             count: max_results
           )
         end
+
+        request = Net::HTTP::Get.new(uri)
+        request["Accept"] = "application/json"
+        request["X-Subscription-Token"] = api_key
+
+        { uri: uri, request: request }
       end
 
-      def make_request(uri)
-        Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                                            read_timeout: 10, open_timeout: 10) do |http|
-          request = Net::HTTP::Get.new(uri)
-          request["Accept"] = "application/json"
-          request["X-Subscription-Token"] = @api_key
-          http.request(request)
-        end
-      end
-
-      def parse_results(json_body)
+      def parse_results(json_body, _max_results)
         data = JSON.parse(json_body)
         results = data.dig("web", "results") || []
 
@@ -54,6 +52,8 @@ module RubyCode
             snippet: result["description"] || ""
           }
         end
+      rescue JSON::ParserError => e
+        raise SearchProviderError, "Failed to parse Brave Search response: #{e.message}"
       end
     end
   end

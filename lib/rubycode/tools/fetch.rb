@@ -22,7 +22,14 @@ module RubyCode
         html = fetch_url(url)
         output = extract_text ? extract_text_content(html) : html
 
-        ToolResult.new(content: output)
+        ToolResult.new(
+          content: output,
+          metadata: {
+            url: url,
+            size_bytes: output.bytesize,
+            extract_text: extract_text
+          }
+        )
       rescue URLError, HTTPError, NetworkError
         raise # Re-raise specific errors without wrapping
       rescue URI::InvalidURIError => e

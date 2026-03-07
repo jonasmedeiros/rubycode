@@ -39,4 +39,7 @@ module RubyCode
 
   # Raised when all retry attempts are exhausted
   class AdapterRetryExhaustedError < AdapterError; end
+
+  # Base class for all search provider-related errors
+  class SearchProviderError < Error; end
 end

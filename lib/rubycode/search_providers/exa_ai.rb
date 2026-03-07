@@ -3,43 +3,45 @@
 require "net/http"
 require "uri"
 require "json"
+require_relative "base"
 
 module RubyCode
   module SearchProviders
     # Exa.ai search provider - AI-native search engine optimized for LLMs
     # https://exa.ai
     # Uses MCP (Model Context Protocol) endpoint
-    class ExaAi
+    class ExaAi < Base
       MCP_ENDPOINT = "https://mcp.exa.ai/mcp"
-      DEFAULT_NUM_RESULTS = 8
       TIMEOUT = 25 # seconds
 
-      def initialize(api_key: nil)
-        @api_key = api_key || ENV["EXA_API_KEY"]
-      end
-
-      def search(query, max_results: 5, type: "auto", livecrawl: "fallback")
-        return [] unless @api_key && !@api_key.empty?
-
-        uri = URI(MCP_ENDPOINT)
-        request = build_request(uri, query, max_results, type, livecrawl)
-        response = make_request(uri, request)
-
-        parse_results(response.body)
-      rescue StandardError => e
-        raise "Exa.ai search failed: #{e.message}"
+      def initialize(api_key: nil, config: nil)
+        super(config: config, api_key: api_key || ENV.fetch("EXA_API_KEY", nil))
       end
 
       private
 
-      def build_request(uri, query, max_results, type, livecrawl)
+      def provider_name
+        "Exa.ai"
+      end
+
+      def requires_api_key?
+        true
+      end
+
+      def build_request(query, max_results)
+        uri = URI(MCP_ENDPOINT)
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"] = "application/json"
         request["Accept"] = "application/json, text/event-stream"
         request["User-Agent"] = "RubyCode/#{RubyCode::VERSION}"
 
-        # Build MCP JSON-RPC 2.0 request
-        request.body = {
+        request.body = build_mcp_payload(query, max_results).to_json
+
+        { uri: uri, request: request }
+      end
+
+      def build_mcp_payload(query, max_results)
+        {
           jsonrpc: "2.0",
           id: 1,
           method: "tools/call",
@@ -47,58 +49,42 @@ module RubyCode
             name: "web_search_exa",
             arguments: {
               query: query,
-              type: type,
+              type: "auto",
               numResults: max_results,
-              livecrawl: livecrawl,
+              livecrawl: "fallback",
               contextMaxCharacters: 10_000
             }
           }
-        }.to_json
-
-        request
+        }
       end
 
-      def make_request(uri, request)
-        Net::HTTP.start(uri.host, uri.port, use_ssl: true,
-                                            read_timeout: TIMEOUT,
-                                            open_timeout: 10) do |http|
-          http.request(request)
-        end
-      end
-
-      def parse_results(body)
+      def parse_results(body, _max_results)
         results = []
 
         # Parse SSE (Server-Sent Events) response
-        lines = body.split("\n")
-        lines.each do |line|
+        body.split("\n").each do |line|
           next unless line.start_with?("data: ")
 
-          data = JSON.parse(line[6..]) # Skip "data: " prefix
-          next unless data["result"] && data["result"]["content"]
-
-          content_items = data["result"]["content"]
-          content_items.each do |item|
-            next unless item["type"] == "text"
-
-            # Exa returns markdown formatted results with titles, URLs, and content
-            text = item["text"]
-            results.concat(parse_markdown_results(text))
-          end
+          process_sse_line(line, results)
         end
 
         results
       rescue JSON::ParserError => e
-        raise "Failed to parse Exa.ai response: #{e.message}"
+        raise SearchProviderError, "Failed to parse Exa.ai response: #{e.message}"
+      end
+
+      def process_sse_line(line, results)
+        data = JSON.parse(line[6..]) # Skip "data: " prefix
+        return unless data["result"]&.dig("content")
+
+        data["result"]["content"].each do |item|
+          next unless item["type"] == "text"
+
+          results.concat(parse_markdown_results(item["text"]))
+        end
       end
 
       def parse_markdown_results(text)
-        # Exa returns results in format:
-        # Title: ...
-        # Author: ...
-        # Published Date: ...
-        # URL: ...
-        # Text: ...
         results = []
         current_result = {}
         collecting_text = false
@@ -107,52 +93,64 @@ module RubyCode
           line = line.strip
           next if line.empty?
 
-          if line.start_with?("Title:")
-            # Save previous result if exists and has URL
-            if current_result[:title] && current_result[:url] && !current_result[:url].empty?
-              results << current_result
-            end
-
-            current_result = {
-              title: line.sub("Title:", "").strip,
-              url: "",
-              snippet: ""
-            }
-            collecting_text = false
-          elsif line.start_with?("URL:") && current_result[:title]
-            current_result[:url] = line.sub("URL:", "").strip
-          elsif line.start_with?("Text:") && current_result[:title]
-            # Start collecting text content
-            current_result[:snippet] = line.sub("Text:", "").strip
-            collecting_text = true
-          elsif collecting_text && current_result[:title]
-            # Stop collecting if we hit another metadata field or get too long
-            break_keywords = ["Title:", "Author:", "Published Date:", "URL:"]
-            if break_keywords.any? { |kw| line.start_with?(kw) }
-              collecting_text = false
-              redo # Process this line again
-            end
-
-            # Continue collecting text
-            if current_result[:snippet].length < 500
-              current_result[:snippet] += " " + line
-            else
-              collecting_text = false
-            end
-          end
+          process_markdown_line(line, current_result, results, collecting_text)
         end
 
-        # Add last result if valid
-        if current_result[:title] && current_result[:url] && !current_result[:url].empty?
-          results << current_result
-        end
+        finalize_result(current_result, results)
+        cleanup_snippets(results)
 
-        # Clean up snippets
+        results
+      end
+
+      def process_markdown_line(line, current_result, results, collecting_text)
+        if line.start_with?("Title:")
+          save_current_result(current_result, results)
+          start_new_result(line, current_result)
+          false
+        elsif line.start_with?("URL:") && current_result[:title]
+          current_result[:url] = line.sub("URL:", "").strip
+          collecting_text
+        elsif line.start_with?("Text:") && current_result[:title]
+          current_result[:snippet] = line.sub("Text:", "").strip
+          true
+        elsif collecting_text && current_result[:title]
+          append_text_if_valid(line, current_result)
+        else
+          collecting_text
+        end
+      end
+
+      def save_current_result(current_result, results)
+        return unless current_result[:title] && current_result[:url] && !current_result[:url].empty?
+
+        results << current_result
+      end
+
+      def start_new_result(line, current_result)
+        current_result.replace(
+          title: line.sub("Title:", "").strip,
+          url: "",
+          snippet: ""
+        )
+      end
+
+      def append_text_if_valid(line, current_result)
+        return if current_result[:snippet].length >= 500
+
+        break_keywords = ["Title:", "Author:", "Published Date:", "URL:"]
+        return if break_keywords.any? { |kw| line.start_with?(kw) }
+
+        current_result[:snippet] = "#{current_result[:snippet]} #{line}"
+      end
+
+      def finalize_result(current_result, results)
+        save_current_result(current_result, results)
+      end
+
+      def cleanup_snippets(results)
         results.each do |result|
           result[:snippet] = result[:snippet].strip[0..300] # Limit to 300 chars
         end
-
-        results
       end
     end
   end
