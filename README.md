@@ -61,7 +61,24 @@ bundle install
 
 ## Quick Start
 
-After installation, you can use RubyCode in your Ruby projects:
+### Interactive CLI
+
+After installing the gem, run the interactive client:
+
+```bash
+rubycode_client
+```
+
+The first time you run it, an interactive setup wizard will guide you through:
+1. Selecting your LLM provider (Ollama Cloud, DeepSeek, Gemini, OpenAI, or OpenRouter)
+2. Choosing a model
+3. Entering API keys (saved securely with encryption)
+
+Your configuration is automatically saved and reloaded on subsequent runs.
+
+### Programmatic Usage
+
+You can also use RubyCode in your Ruby projects:
 
 ```ruby
 require "rubycode"
@@ -79,13 +96,6 @@ client = RubyCode::Client.new
 response = client.ask(prompt: "Find the User model in the codebase")
 puts response
 ```
-
-The first time you run RubyCode, an interactive setup wizard will guide you through:
-1. Selecting your LLM provider (Ollama Cloud, DeepSeek, Gemini, OpenAI, or OpenRouter)
-2. Choosing a model
-3. Entering API keys (saved securely with encryption)
-
-Your configuration is automatically saved and reloaded on subsequent runs.
 
 ## Usage
 
@@ -177,6 +187,11 @@ export EXA_API_KEY=your_api_key_here
 # Sign up at https://brave.com/search/api/
 export BRAVE_API_KEY=your_api_key_here
 ```
+
+### New in 0.1.5
+
+- **CLI Executable**: `rubycode_client` command for interactive chat after gem installation
+- **Improved Documentation**: Reorganized Quick Start section with CLI-first approach
 
 ### New in 0.1.4
 

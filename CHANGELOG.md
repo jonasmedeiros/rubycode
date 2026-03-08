@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [0.1.5] - 2026-03-08
+
+### Added
+- **CLI Executable**: `rubycode_client` command for interactive chat after gem installation
+
+### Changed
+- **README**: Reorganized Quick Start section to prioritize CLI usage
+- **Testing**: Updated documentation to use `bin/test` command
+
 ## [0.1.4] - 2026-03-07
 
 ### Added
