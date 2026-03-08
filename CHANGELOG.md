@@ -1,5 +1,24 @@
 ## [Unreleased]
 
+## [0.1.7] - 2026-03-08
+
+### Fixed
+- **Plan Mode Workflow**: Removed redundant "Describe what you want to implement" prompt
+  - Now uses original user input for both exploration and implementation
+  - User only describes task once, not twice
+  - Clearer approval prompt: "Do you accept this exploration and want to proceed?"
+- **Exploration Behavior**: Enhanced to prevent hitting max iterations
+  - Exploration prompt now emphasizes MUST use `done` tool
+  - Added "When to Call done" section with clear guidance (8-10 iterations)
+  - Added example `done` call format
+  - Updated critical rules to prevent iteration loops
+
+### Changed
+- **CLI Messages**: Improved clarity throughout plan mode workflow
+  - Plan mode entry shows 4-step process
+  - Status message during exploration: "🔍 Exploring codebase for: {task}"
+  - Implementation message: "✓ Plan accepted. Proceeding with implementation (auto-approve enabled)..."
+
 ## [0.1.6] - 2026-03-08
 
 ### Added
