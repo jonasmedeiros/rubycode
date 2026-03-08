@@ -165,6 +165,7 @@ export BRAVE_API_KEY=your_api_key_here
 
 ### New in 0.1.4
 
+- **Bug Fix**: Agent now properly stops when `done` tool is called, even if tool execution fails
 - **Multiple Cloud LLM Adapters**: Support for 5 providers (Ollama Cloud, DeepSeek, Gemini, OpenAI, OpenRouter)
 - **Web Search & Fetch Tools**: Internet search with automatic fallback (Exa/DuckDuckGo/Brave)
 - **Interactive Setup Wizard**: First-time configuration with guided setup
@@ -174,13 +175,32 @@ export BRAVE_API_KEY=your_api_key_here
 - **Adapter Architecture**: 66% code reduction with shared HTTP/error handling
 - **Debug Mode**: Comprehensive request/response logging
 - **Rate Limit Handling**: Automatic retry with 3-attempt limit for 429 errors
-- **Bash Tool Fix**: Removed invalid stdin_data option
+- **Expanded Test Coverage**: 141 tests covering adapters, agent loop, configuration, and tools
+- **Memory Optimization**: Configurable memory window with tool result pruning
 
 ## Development
 
 After checking out the repo, run `bundle install` to install dependencies.
 
-To install this gem onto your local machine, run:
+### Running Tests
+
+```bash
+# Run all tests
+bundle exec rake test
+
+# Run tests without warnings
+bundle exec rake test 2>/dev/null
+
+# Run specific test file
+bundle exec rake test TEST=test/test_adapters.rb
+
+# Run with RuboCop
+bundle exec rake
+```
+
+### Installing Locally
+
+To install this gem onto your local machine:
 
 ```bash
 bundle exec rake install
