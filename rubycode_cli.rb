@@ -285,22 +285,22 @@ end
 
 def process_user_message(client, user_input, context)
   if context.plan_mode
-    # In plan mode - use explore tool then ask for approval
+    # In plan mode - explore codebase first
+    puts "\n🔍 Exploring codebase for: #{user_input}\n"
     response = client.ask(prompt: "Use the explore tool with this query: #{user_input}")
     puts RubyCode::Views::Cli::ResponseBox.build(response: response)
 
     # Ask user if they accept the plan
-    accept_plan = context.prompt.yes?("\nDo you accept this plan and want to proceed with implementation?",
+    accept_plan = context.prompt.yes?("\n📋 Do you accept this exploration and want to proceed with implementation?",
                                       default: true)
 
     if accept_plan
-      puts "\n✓ Plan accepted. Auto-approve enabled for implementation.\n"
+      puts "\n✓ Plan accepted. Proceeding with implementation (auto-approve enabled)...\n"
       # Enable auto-approve for implementation
       client.approval_handler.enable_auto_approve_write
 
-      # Ask for implementation prompt
-      impl_prompt = context.prompt.ask("Describe what you want to implement:")
-      response = client.ask(prompt: impl_prompt)
+      # Use the ORIGINAL user input as the implementation task
+      response = client.ask(prompt: user_input)
       puts RubyCode::Views::Cli::ResponseBox.build(response: response)
 
       # Disable auto-approve after implementation
