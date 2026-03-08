@@ -163,16 +163,13 @@ if RubyCode::ConfigManager.exists?
                                  model: saved_config[:model]),
                           default: true)
   config = use_saved ? saved_config : setup_wizard(prompt)
-  adapter = config[:adapter]
-  model = config[:model]
-  url = config[:url]
 else
   puts RubyCode::Views::Cli::FirstTimeSetup.build
   config = setup_wizard(prompt)
-  adapter = config[:adapter]
-  model = config[:model]
-  url = config[:url]
 end
+adapter = config[:adapter]
+model = config[:model]
+url = config[:url]
 
 puts "\n#{RubyCode::Views::Welcome.build}"
 
