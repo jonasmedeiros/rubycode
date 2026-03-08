@@ -12,11 +12,18 @@ module RubyCode
       include Concerns::HttpClient
       include Concerns::Debugging
 
+      attr_reader :last_request_time, :current_request_tokens, :total_tokens_counter
+
       def initialize(config)
         @config = config
+        @last_request_time = nil
+        @current_request_tokens = nil
+        @total_tokens_counter = TokenCounter.new
       end
 
       def generate(messages:, system: nil, tools: nil)
+        enforce_rate_limit_delay
+
         uri = build_uri
         payload = build_payload(messages, system, tools)
         request = build_request(uri, payload)
@@ -26,6 +33,12 @@ module RubyCode
         body = send_request_with_retry(uri, request)
 
         debug_response(body) if @config.debug
+
+        @last_request_time = Time.now
+
+        # Extract and track tokens
+        @current_request_tokens = extract_tokens(body)
+        @total_tokens_counter += @current_request_tokens
 
         convert_response(body)
       end
@@ -51,6 +64,31 @@ module RubyCode
 
       def api_endpoint
         raise NotImplementedError, "Subclass must define api_endpoint"
+      end
+
+      def extract_tokens(_response_body)
+        raise NotImplementedError, "Subclass must implement extract_tokens"
+      end
+
+      # Rate limiting enforcement
+      def enforce_rate_limit_delay
+        return unless @last_request_time
+
+        elapsed = Time.now - @last_request_time
+        min_delay = @config.adapter_request_delay || 1.5
+
+        return unless elapsed < min_delay
+
+        sleep_time = min_delay - elapsed
+        debug_delay(sleep_time) if @config.debug
+        sleep(sleep_time)
+      end
+
+      def debug_delay(sleep_time)
+        puts Views::Adapter::DebugDelay.build(
+          adapter_name: adapter_name,
+          delay: sleep_time.round(2)
+        )
       end
 
       # Concrete shared methods

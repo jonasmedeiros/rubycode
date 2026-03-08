@@ -27,6 +27,7 @@ module RubyCode
     def run
       iteration = 0
       total_tool_calls = 0
+      @last_response_was_error = false
 
       loop do
         iteration += 1
@@ -36,6 +37,12 @@ module RubyCode
         content, tool_calls = llm_response
 
         if tool_calls.empty?
+          # Skip injection reminder if last response was an adapter error
+          if @last_response_was_error
+            @last_response_was_error = false # Reset flag
+            next # Continue loop without injection
+          end
+
           result = @response_handler.handle_empty_tool_calls(content, iteration, total_tool_calls)
           return result if result
 
@@ -72,12 +79,25 @@ module RubyCode
 
       puts Views::AgentLoop::ResponseReceived.build unless @config.debug
 
+      # Display token info
+      unless @config.debug
+        tokens = @adapter.current_request_tokens
+        cumulative = @adapter.total_tokens_counter
+        puts Views::AgentLoop::TokenSummary.build(
+          tokens: tokens,
+          adapter: @config.adapter,
+          model: @config.model,
+          cumulative: cumulative
+        )
+      end
+
       assistant_message = response_body["message"]
       content = assistant_message["content"] || ""
       tool_calls = assistant_message["tool_calls"] || []
 
       # Reset rate limit error counter on successful response
       @consecutive_rate_limit_errors = 0
+      @last_response_was_error = false # Reset error flag on successful response
 
       @memory.add_message(role: "assistant", content: content)
 
@@ -101,6 +121,7 @@ module RubyCode
       end
 
       handle_adapter_error(e)
+      @last_response_was_error = true # Mark as error to skip injection reminder
       [nil, []] # Return empty to continue loop
     end
 

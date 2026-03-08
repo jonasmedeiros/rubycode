@@ -81,6 +81,17 @@ module RubyCode
           }
         end
       end
+
+      def extract_tokens(response_body)
+        usage = response_body["usage"] || {}
+
+        TokenCounter.new(
+          input: usage["prompt_tokens"],
+          output: usage["completion_tokens"],
+          cached: usage.dig("prompt_tokens_details", "cached_tokens"),
+          thinking: usage.dig("completion_tokens_details", "reasoning_tokens")
+        )
+      end
     end
   end
 end

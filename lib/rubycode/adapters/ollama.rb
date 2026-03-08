@@ -13,6 +13,8 @@ module RubyCode
       end
 
       def generate(messages:, system: nil, tools: nil)
+        enforce_rate_limit_delay
+
         uri = build_uri
         payload = build_payload(messages, system, tools)
         request = build_request(uri, payload)
@@ -22,6 +24,12 @@ module RubyCode
         body = send_request_with_retry(uri, request)
 
         debug_response(body) if @config.debug
+
+        @last_request_time = Time.now
+
+        # Extract and track tokens
+        @current_request_tokens = extract_tokens(body)
+        @total_tokens_counter += @current_request_tokens
 
         body
       rescue AdapterError => e
@@ -136,6 +144,14 @@ module RubyCode
             "arguments" => tool_data["arguments"]
           }
         }
+      end
+
+      def extract_tokens(response_body)
+        # Ollama returns tokens in different format
+        TokenCounter.new(
+          input: response_body["prompt_eval_count"],
+          output: response_body["eval_count"]
+        )
       end
     end
   end

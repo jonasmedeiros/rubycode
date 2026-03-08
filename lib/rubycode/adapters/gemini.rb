@@ -107,6 +107,18 @@ module RubyCode
         }
       end
 
+      def extract_tokens(response_body)
+        usage = response_body["usageMetadata"] || {}
+        candidates = usage["candidatesTokenCount"] || 0
+        thoughts = usage["thoughtsTokenCount"] || 0
+
+        TokenCounter.new(
+          input: usage["promptTokenCount"],
+          output: candidates + thoughts, # Must sum both
+          thinking: thoughts
+        )
+      end
+
       def sanitize_url(uri)
         uri.to_s.gsub(/key=[^&]*/, "key=***")
       end
