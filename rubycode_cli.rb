@@ -206,7 +206,7 @@ if adapter_info[:requires_key]
   end
 end
 
-ChatContext = Struct.new(:prompt, :client, :adapter, :model, :full_path, :debug_mode)
+ChatContext = Struct.new(:prompt, :client, :adapter, :model, :full_path, :debug_mode, :plan_mode)
 
 def run_chat_loop(context)
   loop do
@@ -215,7 +215,7 @@ def run_chat_loop(context)
 
     next if handle_special_command(user_input, context)
 
-    process_user_message(context.client, user_input)
+    process_user_message(context.client, user_input, context)
   end
 end
 
@@ -237,6 +237,32 @@ def handle_special_command(input, context)
   when "config"
     show_config_and_reconfigure(context)
     true
+  when "plan", "plan mode"
+    puts RubyCode::Views::Cli::PlanModeEnter.build
+    context.plan_mode = true
+    true
+  when "auto-approve on", "auto-approve write"
+    confirmed = context.prompt.yes?(
+      "⚠ Enable auto-approve for write/update operations?\n" \
+      "Files will be modified without confirmation.",
+      default: false
+    )
+
+    if confirmed
+      context.client.approval_handler.enable_auto_approve_write
+      puts RubyCode::Views::Cli::AutoApproveEnabled.build
+    else
+      puts "\nAuto-approve NOT enabled.\n\n"
+    end
+    true
+  when "auto-approve off"
+    context.client.approval_handler.disable_auto_approve_write
+    puts RubyCode::Views::Cli::AutoApproveDisabled.build
+    true
+  when "auto-approve", "auto-approve status"
+    status = context.client.approval_handler.auto_approve_write_enabled
+    puts RubyCode::Views::Cli::AutoApproveStatus.build(enabled: status)
+    true
   else
     false
   end
@@ -247,7 +273,8 @@ def show_config_and_reconfigure(context)
     adapter: context.adapter,
     model: context.model,
     directory: context.full_path,
-    debug_mode: context.debug_mode
+    debug_mode: context.debug_mode,
+    auto_approve: context.client.approval_handler.auto_approve_write_enabled
   )
 
   return unless context.prompt.yes?(I18n.t("rubycode.setup.reconfigure"), default: false)
@@ -256,9 +283,40 @@ def show_config_and_reconfigure(context)
   setup_wizard(context.prompt)
 end
 
-def process_user_message(client, user_input)
-  response = client.ask(prompt: user_input)
-  puts RubyCode::Views::Cli::ResponseBox.build(response: response)
+def process_user_message(client, user_input, context)
+  if context.plan_mode
+    # In plan mode - use explore tool then ask for approval
+    response = client.ask(prompt: "Use the explore tool with this query: #{user_input}")
+    puts RubyCode::Views::Cli::ResponseBox.build(response: response)
+
+    # Ask user if they accept the plan
+    accept_plan = context.prompt.yes?("\nDo you accept this plan and want to proceed with implementation?",
+                                      default: true)
+
+    if accept_plan
+      puts "\n✓ Plan accepted. Auto-approve enabled for implementation.\n"
+      # Enable auto-approve for implementation
+      client.approval_handler.enable_auto_approve_write
+
+      # Ask for implementation prompt
+      impl_prompt = context.prompt.ask("Describe what you want to implement:")
+      response = client.ask(prompt: impl_prompt)
+      puts RubyCode::Views::Cli::ResponseBox.build(response: response)
+
+      # Disable auto-approve after implementation
+      client.approval_handler.disable_auto_approve_write
+    else
+      puts "\n✗ Plan rejected. Returning to normal mode.\n"
+    end
+
+    # Exit plan mode after exploration
+    context.plan_mode = false
+    puts RubyCode::Views::Cli::PlanModeExit.build
+  else
+    # Normal mode
+    response = client.ask(prompt: user_input)
+    puts RubyCode::Views::Cli::ResponseBox.build(response: response)
+  end
 rescue Interrupt
   puts RubyCode::Views::Cli::InterruptMessage.build
 rescue StandardError => e
@@ -270,5 +328,6 @@ client = RubyCode::Client.new(tty_prompt: prompt)
 puts RubyCode::Views::Cli::ReadyMessage.build
 
 debug_mode = false # Debug mode not yet implemented
-context = ChatContext.new(prompt, client, adapter, model, full_path, debug_mode)
+plan_mode = false  # Plan mode flag
+context = ChatContext.new(prompt, client, adapter, model, full_path, debug_mode, plan_mode)
 run_chat_loop(context)

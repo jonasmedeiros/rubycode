@@ -4,9 +4,20 @@ module RubyCode
   class Client
     # Handles user approval prompts for tools
     class ApprovalHandler
+      attr_reader :auto_approve_write_enabled
+
       def initialize(tty_prompt:, config:)
         @prompt = tty_prompt
         @config = config
+        @auto_approve_write_enabled = false
+      end
+
+      def enable_auto_approve_write
+        @auto_approve_write_enabled = true
+      end
+
+      def disable_auto_approve_write
+        @auto_approve_write_enabled = false
       end
 
       def request_bash_approval(command, base_command, safe_commands)
@@ -25,6 +36,8 @@ module RubyCode
       end
 
       def request_write_approval(file_path, content)
+        return true if @auto_approve_write_enabled
+
         display = Views::WriteApproval.build(
           file_path: file_path,
           content: content
@@ -39,6 +52,8 @@ module RubyCode
       end
 
       def request_update_approval(file_path, old_string, new_string)
+        return true if @auto_approve_write_enabled
+
         display = Views::UpdateApproval.build(
           file_path: file_path,
           old_string: old_string,

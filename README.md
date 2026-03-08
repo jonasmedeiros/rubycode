@@ -18,12 +18,18 @@ A Ruby-native AI coding assistant with pluggable LLM adapters. RubyCode provides
 - **AI Agent Loop**: Autonomous task execution with tool calling
 - **Multiple Cloud LLM Adapters**: Support for Ollama Cloud, DeepSeek, Gemini, OpenAI, and OpenRouter
 - **Interactive Setup Wizard**: First-time configuration with provider selection and API key management
+- **Plan Mode**: Interactive planning workflow with autonomous codebase exploration
+  - Enter with `plan mode` command
+  - AI explores codebase and presents findings
+  - User approves plan before implementation
+  - Auto-approve enabled during implementation
 - **Built-in Tools**:
   - `bash`: Execute safe bash commands for filesystem exploration
   - `search`: Search file contents using grep with regex support
   - `read`: Read files and directories with line numbers
   - `write`: Create new files with user approval
   - `update`: Edit existing files with user approval
+  - `explore`: Autonomous codebase exploration agent (read-only)
   - `web_search`: Search the internet with automatic provider fallback (DuckDuckGo/Brave/Exa)
   - `fetch`: Fetch content from URLs
   - `done`: Signal task completion with final answer
@@ -75,6 +81,49 @@ The first time you run it, an interactive setup wizard will guide you through:
 3. Entering API keys (saved securely with encryption)
 
 Your configuration is automatically saved and reloaded on subsequent runs.
+
+#### CLI Commands
+
+Once running, you have access to these special commands:
+
+- `plan mode` or `plan` - Enter plan mode for guided exploration and implementation
+- `auto-approve on` - Enable auto-approval for write operations
+- `auto-approve off` - Disable auto-approval
+- `auto-approve status` - Check auto-approval status
+- `config` - View/reconfigure settings
+- `clear` - Clear conversation history
+- `exit` or `quit` - Exit the CLI
+
+#### Using Plan Mode
+
+Plan mode provides a structured workflow for complex tasks:
+
+1. Type `plan mode` to enter
+2. Describe what you want to explore/implement (e.g., "add user authentication")
+3. AI autonomously explores the codebase using the explore tool
+4. Review the exploration findings and plan
+5. Accept or reject the plan
+6. If accepted, describe the implementation and AI proceeds with auto-approve enabled
+
+Example session:
+```
+You: plan mode
+📋 Entering Plan Mode
+Next: Describe what you want to explore and implement.
+
+You: add JWT authentication to the API
+
+🔍 Exploring codebase...
+[AI explores and presents findings]
+
+Do you accept this plan? (Y/n) y
+
+✓ Plan accepted. Auto-approve enabled for implementation.
+
+Describe what you want to implement: add JWT token generation to User model
+
+[AI implements changes without requiring approval for each file]
+```
 
 ### Programmatic Usage
 
@@ -161,12 +210,17 @@ The agent has access to several built-in tools:
 3. **read**: Read files with line numbers or list directory contents
 4. **write**: Create new files (requires user approval)
 5. **update**: Edit existing files with exact string replacement (requires user approval)
-6. **web_search**: Search the internet with automatic provider fallback (requires user approval):
+6. **explore**: Autonomous codebase exploration agent (read-only):
+   - Spawns sub-agent with constrained tools (bash, read, search, web_search, fetch, done)
+   - Configurable max iterations (default: 10, max: 15)
+   - Returns structured findings with summary, key files, and code flow
+   - Used automatically in plan mode
+7. **web_search**: Search the internet with automatic provider fallback (requires user approval):
    - Primary: Exa.ai (AI-native search, optional with API key)
    - Fallback 1: DuckDuckGo Instant Answer API (free, no API key)
    - Fallback 2: Brave Search API (optional, for better results)
-7. **fetch**: Fetch and extract text content from URLs (requires user approval)
-8. **done**: Signal completion and provide the final answer
+8. **fetch**: Fetch and extract text content from URLs (requires user approval)
+9. **done**: Signal completion and provide the final answer
 
 **Note**: Tool schemas are externalized in `config/tools/*.json` for easy customization.
 
@@ -187,6 +241,19 @@ export EXA_API_KEY=your_api_key_here
 # Sign up at https://brave.com/search/api/
 export BRAVE_API_KEY=your_api_key_here
 ```
+
+### New in 0.1.6
+
+- **Plan Mode**: Interactive planning workflow with autonomous codebase exploration
+  - Enter with `plan mode` or `plan` command
+  - AI explores and presents findings for user approval
+  - Auto-approve enabled for implementation after plan acceptance
+- **Auto-Approve Commands**: Manual control over write operation approvals
+  - `auto-approve on/off/status` for toggling and checking approval mode
+- **Explore Tool**: Autonomous read-only codebase exploration agent
+  - Constrained sub-agent with dedicated exploration prompt
+  - Structured output with summary, key files, and code flow
+  - Configurable iteration limits (10 default, 15 max)
 
 ### New in 0.1.5
 

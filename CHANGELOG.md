@@ -1,5 +1,33 @@
 ## [Unreleased]
 
+## [0.1.6] - 2026-03-08
+
+### Added
+- **Plan Mode**: Interactive planning workflow with autonomous codebase exploration
+  - Type `plan mode` or `plan` to enter planning mode
+  - AI explores codebase using the explore tool
+  - User approval prompt after exploration: "Do you accept this plan?"
+  - Auto-approve automatically enabled for implementation if plan accepted
+  - Auto-approve disabled after implementation completes
+- **Auto-Approve Commands**: Manual control over write operation approvals
+  - `auto-approve on` / `auto-approve write`: Enable auto-approval with confirmation prompt
+  - `auto-approve off`: Disable auto-approval
+  - `auto-approve` / `auto-approve status`: Check current auto-approve status
+- **Explore Tool**: Autonomous codebase exploration agent (read-only)
+  - Spawns sub-agent with constrained toolset (bash, read, search, web_search, fetch, done)
+  - Configurable max iterations (default: 10, max: 15)
+  - Structured output format with summary, key files, code flow, and external resources
+  - Uses dedicated exploration prompt for systematic investigation
+
+### Changed
+- **CLI Architecture**: Added plan_mode flag to ChatContext struct
+- **Plan Mode Entry Message**: Updated to clearly explain the workflow
+- **Process Flow**: Enhanced process_user_message to handle plan mode and auto-approve lifecycle
+- **rubycode_cli.rb**: Synchronized with exe/rubycode_client to include all new features
+
+### Fixed
+- **Special Command Handling**: Plan mode now properly handled as special command instead of being sent to AI
+
 ## [0.1.5] - 2026-03-08
 
 ### Added

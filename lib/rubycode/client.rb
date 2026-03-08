@@ -5,7 +5,7 @@ require "set"
 module RubyCode
   # Main client that provides the public API for the agent
   class Client
-    attr_reader :memory
+    attr_reader :memory, :approval_handler
 
     def initialize(tty_prompt: nil)
       @config = RubyCode.config
@@ -14,6 +14,10 @@ module RubyCode
       @memory.clear # Clear memory at start of each session to prevent payload size issues
       @read_files = Set.new
       @tty_prompt = tty_prompt
+      @approval_handler = Client::ApprovalHandler.new(
+        tty_prompt: @tty_prompt,
+        config: @config
+      )
     end
 
     def ask(prompt:)
@@ -25,7 +29,11 @@ module RubyCode
         memory: @memory,
         config: @config,
         system_prompt: system_prompt,
-        options: { read_files: @read_files, tty_prompt: @tty_prompt }
+        options: {
+          read_files: @read_files,
+          tty_prompt: @tty_prompt,
+          approval_handler: @approval_handler
+        }
       ).run
     end
 

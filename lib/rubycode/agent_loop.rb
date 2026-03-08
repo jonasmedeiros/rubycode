@@ -11,6 +11,8 @@ module RubyCode
     MAX_TOOL_CALLS = 50
     MAX_CONSECUTIVE_RATE_LIMIT_ERRORS = 3
 
+    attr_reader :approval_handler
+
     def initialize(adapter:, memory:, config:, system_prompt:, options: {})
       @adapter = adapter
       @memory = memory
@@ -18,9 +20,11 @@ module RubyCode
       @system_prompt = system_prompt
       @read_files = options[:read_files]
       @tty_prompt = options[:tty_prompt]
+      @options = options
       @response_handler = Client::ResponseHandler.new(memory: @memory, config: @config)
       @display_formatter = Client::DisplayFormatter.new(config: @config)
-      @approval_handler = Client::ApprovalHandler.new(tty_prompt: @tty_prompt, config: @config)
+      @approval_handler = options[:approval_handler] ||
+                          Client::ApprovalHandler.new(tty_prompt: @tty_prompt, config: @config)
       @consecutive_rate_limit_errors = 0
     end
 
@@ -101,10 +105,20 @@ module RubyCode
         window_size: @config.memory_window,
         prune_tool_results: @config.prune_tool_results
       )
+
+      # Filter tools if allowed_tools is specified
+      tools_to_send = if @options[:allowed_tools]
+                        Tools.definitions.select do |t|
+                          @options[:allowed_tools].include?(t[:function][:name])
+                        end
+                      else
+                        Tools.definitions
+                      end
+
       @adapter.generate(
         messages: messages,
         system: @system_prompt,
-        tools: Tools.definitions
+        tools: tools_to_send
       )
     end
 

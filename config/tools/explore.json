@@ -1,0 +1,22 @@
+{
+  "type": "function",
+  "function": {
+    "name": "explore",
+    "description": "Autonomously explore the codebase to answer questions about architecture, implementation, and code flow. READ-ONLY exploration - no files will be modified. The agent will use bash, read, search, web_search, and fetch tools to thoroughly investigate the codebase and provide findings. Use this for questions like 'how does authentication work?', 'where is user management implemented?', 'what files handle routing?'",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "The exploration question or goal (e.g., 'how does user authentication work in this codebase?')"
+        },
+        "max_iterations": {
+          "type": "integer",
+          "description": "Maximum number of exploration iterations (default: 10, max: 15). Higher values allow more thorough exploration but use more tokens.",
+          "default": 10
+        }
+      },
+      "required": ["query"]
+    }
+  }
+}

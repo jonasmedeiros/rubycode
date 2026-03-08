@@ -14,11 +14,21 @@ Style/OneClassPerFile:
 
 # Metrics - reasonable limits for maintainability
 Metrics/ClassLength:
-  Max: 200
+  Max: 210
 
 Metrics/MethodLength:
   Max: 20
+  Exclude:
+    - "exe/**/*"
+    - "rubycode_cli.rb"
 
 Metrics/AbcSize:
   Exclude:
     - "test/**/*"
+    - "exe/**/*"
+    - "rubycode_cli.rb"
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - "exe/**/*"
+    - "rubycode_cli.rb"

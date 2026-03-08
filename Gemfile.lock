@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    rubycode (0.1.5)
+    rubycode (0.1.6)
       base64 (~> 0.2)
       dotenv (~> 3.1)
       i18n (~> 1.14)

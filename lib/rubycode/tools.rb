@@ -9,6 +9,7 @@ require_relative "tools/update"
 require_relative "tools/done"
 require_relative "tools/web_search"
 require_relative "tools/fetch"
+require_relative "tools/explore"
 
 module RubyCode
   # Collection of available tools for the AI agent
@@ -22,7 +23,8 @@ module RubyCode
       Update,
       Done,
       WebSearch,
-      Fetch
+      Fetch,
+      Explore
     ].freeze
 
     def self.definitions
