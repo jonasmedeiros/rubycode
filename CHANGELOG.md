@@ -22,10 +22,11 @@
 - **Memory Management**: Clear conversation history on session start to prevent payload size issues
 
 ### Fixed
+- **Agent Loop Exit Bug**: Agent now properly stops when `done` tool is called, even if tool execution fails
 - **Bash Tool stdin_data Error**: Removed invalid stdin_data option from Open3.popen2e
 - **Search Provider Transparency**: Now displays which provider (DuckDuckGo/Brave/Exa) returned results
 - **RuboCop Compliance**: Reduced violations from 45 to 39 (all acceptable complexity metrics)
-- **Test Suite**: All bash tool tests now passing (80 runs, 231 assertions, 0 errors)
+- **Test Suite**: Expanded coverage to 141 tests (379 assertions) including adapter and agent loop tests
 
 ## [0.1.3] - 2026-03-05
 
