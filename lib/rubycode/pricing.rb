@@ -29,14 +29,22 @@ module RubyCode
     }.freeze
 
     def self.calculate_cost(adapter:, model:, tokens:)
-      rates = RATES.dig(adapter.to_sym, model) || RATES.dig(adapter.to_sym, "default")
+      rates = find_rates(adapter, model)
       return 0.0 unless rates
 
-      input_cost = (tokens.input / 1_000_000.0) * rates[:input]
-      output_cost = (tokens.output / 1_000_000.0) * rates[:output]
-      cached_cost = (tokens.cached / 1_000_000.0) * (rates[:cached] || 0)
+      input_cost = calculate_token_cost(tokens.input, rates[:input])
+      output_cost = calculate_token_cost(tokens.output, rates[:output])
+      cached_cost = calculate_token_cost(tokens.cached, rates[:cached] || 0)
 
       input_cost + output_cost - cached_cost # Cached reduces cost
+    end
+
+    def self.find_rates(adapter, model)
+      RATES.dig(adapter.to_sym, model) || RATES.dig(adapter.to_sym, "default")
+    end
+
+    def self.calculate_token_cost(token_count, rate_per_million)
+      (token_count / 1_000_000.0) * rate_per_million
     end
 
     def self.format_cost(cost_usd)

@@ -60,14 +60,26 @@ module RubyCode
       def add_related_topics(results, data, max_results)
         related = data["RelatedTopics"] || []
         related.first(max_results - results.length).each do |topic|
-          next if topic["Topics"] # Skip categories
+          next if skip_topic?(topic)
 
-          results << {
-            title: topic["Text"]&.split(" - ")&.first || "Related",
-            url: topic["FirstURL"] || "",
-            snippet: topic["Text"] || ""
-          }
+          results << build_topic_result(topic)
         end
+      end
+
+      def skip_topic?(topic)
+        topic["Topics"] # Skip categories
+      end
+
+      def build_topic_result(topic)
+        {
+          title: extract_topic_title(topic),
+          url: topic["FirstURL"] || "",
+          snippet: topic["Text"] || ""
+        }
+      end
+
+      def extract_topic_title(topic)
+        topic["Text"]&.split(" - ")&.first || "Related"
       end
 
       def add_other_results(results, data, max_results)

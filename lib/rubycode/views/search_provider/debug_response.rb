@@ -9,16 +9,21 @@ module RubyCode
       class DebugResponse
         def self.build(provider_name:, status_code:, body_preview:)
           pastel = Pastel.new
-          content = []
-          content << ""
-          content << pastel.green.bold("=== DEBUG SEARCH RESPONSE ===")
-          content << "#{pastel.bold("Provider:")} #{provider_name}"
-          content << "#{pastel.bold("Status:")} #{status_code}"
-          content << ""
-          content << pastel.bold("Response Preview:")
-          content << body_preview
-          content << pastel.green.bold("=" * 29)
+          content = build_content_lines(pastel, provider_name, status_code, body_preview)
           content.join("\n")
+        end
+
+        def self.build_content_lines(pastel, provider_name, status_code, body_preview)
+          [
+            "",
+            pastel.green.bold("=== DEBUG SEARCH RESPONSE ==="),
+            "#{pastel.bold("Provider:")} #{provider_name}",
+            "#{pastel.bold("Status:")} #{status_code}",
+            "",
+            pastel.bold("Response Preview:"),
+            body_preview,
+            pastel.green.bold("=" * 29)
+          ]
         end
       end
     end

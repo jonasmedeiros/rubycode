@@ -10,25 +10,42 @@ module RubyCode
         def self.build(result:)
           pastel = Pastel.new
           metadata = result.metadata || {}
+
+          lines = build_header_lines(pastel, metadata)
+          lines.concat(build_result_lines(pastel, metadata[:results] || []))
+
+          lines.join("\n")
+        end
+
+        def self.build_header_lines(pastel, metadata)
           count = metadata[:result_count] || 0
-          results = metadata[:results] || []
           provider = metadata[:provider] || "Search"
 
-          lines = [
+          [
             "",
             "   #{pastel.cyan("✓")} Found #{count} result(s) from #{provider}:",
             ""
           ]
+        end
 
-          # Show ALL results with full URLs
-          results.each_with_index do |item, idx|
-            lines << "   #{pastel.bold("#{idx + 1}. #{item[:title]}")}"
-            lines << pastel.cyan("      #{item[:url]}")
-            lines << pastel.dim("      #{item[:snippet]}") if item[:snippet] && !item[:snippet].empty?
-            lines << ""
+        def self.build_result_lines(pastel, results)
+          results.flat_map.with_index do |item, idx|
+            build_single_result(pastel, item, idx)
           end
+        end
 
-          lines.join("\n")
+        def self.build_single_result(pastel, item, idx)
+          lines = [
+            "   #{pastel.bold("#{idx + 1}. #{item[:title]}")}",
+            pastel.cyan("      #{item[:url]}")
+          ]
+          lines << pastel.dim("      #{item[:snippet]}") if snippet?(item)
+          lines << ""
+          lines
+        end
+
+        def self.snippet?(item)
+          item[:snippet] && !item[:snippet].empty?
         end
       end
     end

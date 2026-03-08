@@ -30,8 +30,52 @@ module RubyCode
       end
     end
 
-    def to_llm_format
-      messages.map(&:to_h)
+    def to_llm_format(window_size: 10, prune_tool_results: true)
+      all_messages = messages
+      return all_messages.map(&:to_h) if all_messages.length <= window_size
+
+      build_windowed_format(all_messages, window_size, prune_tool_results)
+    end
+
+    def build_windowed_format(all_messages, window_size, prune_tool_results)
+      first_msg, recent, middle = partition_messages(all_messages, window_size)
+
+      return recent.map(&:to_h) if recent.include?(first_msg)
+
+      result_messages = build_message_list(first_msg, middle, recent, prune_tool_results)
+      result_messages.map(&:to_h)
+    end
+
+    def build_message_list(first_msg, middle, recent, prune_tool_results)
+      return [first_msg] + recent unless should_prune_middle?(prune_tool_results, middle)
+
+      pruned_middle = prune_tool_results_from_middle(middle)
+      [first_msg] + pruned_middle + recent
+    end
+
+    def partition_messages(all_messages, window_size)
+      first_msg = all_messages.first
+      recent = all_messages.last(window_size)
+      middle = all_messages[1..-(window_size + 1)] || []
+      [first_msg, recent, middle]
+    end
+
+    def should_prune_middle?(prune_tool_results, middle)
+      prune_tool_results && middle.any? { |msg| tool_result_message?(msg) }
+    end
+
+    def tool_result_message?(message)
+      message.role == "user" && message.content.start_with?("Tool '")
+    end
+
+    def prune_tool_results_from_middle(middle)
+      middle.map do |msg|
+        if tool_result_message?(msg)
+          Message.new(role: msg.role, content: "[Tool result cleared]")
+        else
+          msg
+        end
+      end
     end
 
     def clear

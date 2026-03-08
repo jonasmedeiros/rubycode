@@ -99,32 +99,48 @@ module RubyCode
 
         return if content.empty?
 
-        tool_calls = []
-        clean_content = content.dup
-
-        # Try parsing XML-wrapped tool calls first: <tool_call>{"name": "...", "arguments": {...}}</tool_call>
-        if content.include?("<tool_call>")
-          content.scan(%r{<tool_call>(.*?)</tool_call>}m) do |match|
-            tool_call_json = match[0].strip
-            tool_data = parse_tool_json(tool_call_json)
-            tool_calls << convert_to_openai_format(tool_data) if tool_data
-          end
-
-          # Remove all <tool_call> blocks from content
-          clean_content = content.gsub(%r{<tool_call>.*?</tool_call>}m, "").strip if tool_calls.any?
-        end
-
-        # Try parsing plain JSON tool call: {"name": "...", "arguments": {...}}
-        if tool_calls.empty? && content.strip.start_with?("{") && (tool_data = parse_tool_json(content))
-          tool_calls << convert_to_openai_format(tool_data)
-          clean_content = "" # Content was a tool call, clear it
-        end
+        tool_calls, clean_content = extract_tool_calls_and_content(content)
 
         # Update message with parsed tool calls and cleaned content
         return unless tool_calls.any?
 
         message["tool_calls"] = tool_calls
         message["content"] = clean_content
+      end
+
+      def extract_tool_calls_and_content(content)
+        # Try XML-wrapped tool calls first
+        xml_result = parse_xml_tool_calls(content)
+        return xml_result if xml_result[0].any?
+
+        # Try plain JSON tool call
+        json_result = parse_json_tool_call(content)
+        return json_result if json_result[0].any?
+
+        [[], content]
+      end
+
+      def parse_xml_tool_calls(content)
+        return [[], content] unless content.include?("<tool_call>")
+
+        tool_calls = []
+        content.scan(%r{<tool_call>(.*?)</tool_call>}m) do |match|
+          tool_call_json = match[0].strip
+          tool_data = parse_tool_json(tool_call_json)
+          tool_calls << convert_to_openai_format(tool_data) if tool_data
+        end
+
+        clean_content = tool_calls.any? ? content.gsub(%r{<tool_call>.*?</tool_call>}m, "").strip : content
+        [tool_calls, clean_content]
+      end
+
+      def parse_json_tool_call(content)
+        return [[], content] unless content.strip.start_with?("{")
+
+        tool_data = parse_tool_json(content)
+        return [[], content] unless tool_data
+
+        [[convert_to_openai_format(tool_data)], ""]
       end
 
       def parse_tool_json(json_string)

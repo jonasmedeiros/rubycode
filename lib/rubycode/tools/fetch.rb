@@ -22,14 +22,7 @@ module RubyCode
         html = fetch_url(url)
         output = extract_text ? extract_text_content(html) : html
 
-        ToolResult.new(
-          content: output,
-          metadata: {
-            url: url,
-            size_bytes: output.bytesize,
-            extract_text: extract_text
-          }
-        )
+        build_tool_result(url, output, extract_text)
       rescue URLError, HTTPError, NetworkError
         raise # Re-raise specific errors without wrapping
       rescue URI::InvalidURIError => e
@@ -40,6 +33,17 @@ module RubyCode
         raise ToolError, "Fetch failed: #{e.message}"
       end
 
+      def build_tool_result(url, output, extract_text)
+        ToolResult.new(
+          content: output,
+          metadata: {
+            url: url,
+            size_bytes: output.bytesize,
+            extract_text: extract_text
+          }
+        )
+      end
+
       def validate_url!(url)
         uri = URI.parse(url)
         raise URLError, "URL must have http or https scheme" unless %w[http https].include?(uri.scheme)
@@ -48,36 +52,45 @@ module RubyCode
 
       def fetch_url(url)
         uri = URI.parse(url)
-
-        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                                            read_timeout: REQUEST_TIMEOUT, open_timeout: 10) do |http|
-          request = Net::HTTP::Get.new(uri)
-          request["User-Agent"] = "RubyCode/#{RubyCode::VERSION}"
-          response = http.request(request)
-
-          case response
-          when Net::HTTPSuccess
-            # Force UTF-8 encoding
-            html = response.body
-            html.force_encoding("UTF-8")
-          when Net::HTTPRedirection
-            # Follow redirect
-            location = response["location"]
-            raise HTTPError, "Redirect loop detected" if location == url
-
-            # Handle relative redirects
-            redirect_uri = URI.parse(location)
-            redirect_uri = uri + location unless redirect_uri.absolute?
-
-            fetch_url(redirect_uri.to_s)
-          else
-            raise HTTPError, "HTTP #{response.code}: #{response.message}"
-          end
-        end
+        response = make_http_request(uri)
+        handle_response(response, uri, url)
       rescue Net::OpenTimeout, Net::ReadTimeout => e
         raise NetworkError, "Request timed out: #{e.message}"
       rescue SocketError, Errno::ECONNREFUSED => e
         raise NetworkError, "Connection failed: #{e.message}"
+      end
+
+      def make_http_request(uri)
+        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
+                                            read_timeout: REQUEST_TIMEOUT, open_timeout: 10) do |http|
+          request = Net::HTTP::Get.new(uri)
+          request["User-Agent"] = "RubyCode/#{RubyCode::VERSION}"
+          http.request(request)
+        end
+      end
+
+      def handle_response(response, uri, url)
+        case response
+        when Net::HTTPSuccess
+          response.body.force_encoding("UTF-8")
+        when Net::HTTPRedirection
+          handle_redirect(response, uri, url)
+        else
+          raise HTTPError, "HTTP #{response.code}: #{response.message}"
+        end
+      end
+
+      def handle_redirect(response, uri, url)
+        location = response["location"]
+        raise HTTPError, "Redirect loop detected" if location == url
+
+        redirect_uri = build_redirect_uri(location, uri)
+        fetch_url(redirect_uri.to_s)
+      end
+
+      def build_redirect_uri(location, base_uri)
+        redirect_uri = URI.parse(location)
+        redirect_uri.absolute? ? redirect_uri : base_uri + location
       end
 
       def extract_text_content(html)

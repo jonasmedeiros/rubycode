@@ -71,31 +71,37 @@ module RubyCode
         # Gemini format: { candidates: [{ content: { parts: [...], role: "model" }, finishReason: "STOP" }] }
         # Our format: { "message" => { "content" => ..., "tool_calls" => [...] } }
 
+        parts = extract_parts_from_response(gemini_response)
+
+        {
+          "message" => {
+            "content" => extract_text_content(parts),
+            "tool_calls" => extract_tool_calls(parts)
+          }
+        }
+      end
+
+      def extract_parts_from_response(gemini_response)
         candidate = gemini_response["candidates"]&.first
         raise AdapterError, I18n.t("rubycode.errors.adapter.no_choices") unless candidate
 
         content_obj = candidate["content"]
         raise AdapterError, I18n.t("rubycode.errors.adapter.no_message") unless content_obj
 
-        parts = content_obj["parts"] || []
+        content_obj["parts"] || []
+      end
 
-        # Extract text content
-        text_content = parts
-                       .select { |p| p["text"] }
-                       .map { |p| p["text"] }
-                       .join("\n")
+      def extract_text_content(parts)
+        parts
+          .select { |p| p["text"] }
+          .map { |p| p["text"] }
+          .join("\n")
+      end
 
-        # Extract function calls
-        tool_calls = parts
-                     .select { |p| p["functionCall"] }
-                     .map { |p| convert_function_call(p["functionCall"]) }
-
-        {
-          "message" => {
-            "content" => text_content,
-            "tool_calls" => tool_calls
-          }
-        }
+      def extract_tool_calls(parts)
+        parts
+          .select { |p| p["functionCall"] }
+          .map { |p| convert_function_call(p["functionCall"]) }
       end
 
       def convert_function_call(function_call)

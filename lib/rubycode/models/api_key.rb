@@ -17,25 +17,29 @@ module RubyCode
         # @param api_key [String] The plaintext API key
         def save_key(adapter:, api_key:)
           encrypted_data = encrypt(api_key)
-
-          # Check if key exists for this adapter
           existing = dataset.where(adapter: adapter.to_s).first
 
           if existing
-            # Update existing key
-            dataset.where(adapter: adapter.to_s).update(
-              encrypted_key: encrypted_data[:encrypted],
-              iv: encrypted_data[:iv],
-              updated_at: Time.now
-            )
+            update_existing_key(adapter, encrypted_data)
           else
-            # Insert new key
-            dataset.insert(
-              adapter: adapter.to_s,
-              encrypted_key: encrypted_data[:encrypted],
-              iv: encrypted_data[:iv]
-            )
+            insert_new_key(adapter, encrypted_data)
           end
+        end
+
+        def update_existing_key(adapter, encrypted_data)
+          dataset.where(adapter: adapter.to_s).update(
+            encrypted_key: encrypted_data[:encrypted],
+            iv: encrypted_data[:iv],
+            updated_at: Time.now
+          )
+        end
+
+        def insert_new_key(adapter, encrypted_data)
+          dataset.insert(
+            adapter: adapter.to_s,
+            encrypted_key: encrypted_data[:encrypted],
+            iv: encrypted_data[:iv]
+          )
         end
 
         # Retrieve and decrypt an API key for a specific adapter
@@ -47,7 +51,7 @@ module RubyCode
 
           decrypt(
             encrypted: row[:encrypted_key],
-            iv: row[:iv]
+            init_vector: row[:iv]
           )
         end
 
@@ -85,13 +89,13 @@ module RubyCode
 
         # Decrypt an encrypted API key
         # @param encrypted [String] Base64-encoded encrypted data
-        # @param iv [String] Base64-encoded initialization vector
+        # @param init_vector [String] Base64-encoded initialization vector
         # @return [String] The decrypted API key
-        def decrypt(encrypted:, iv:)
+        def decrypt(encrypted:, init_vector:)
           cipher = OpenSSL::Cipher.new("AES-256-CBC")
           cipher.decrypt
           cipher.key = encryption_key
-          cipher.iv = Base64.strict_decode64(iv)
+          cipher.iv = Base64.strict_decode64(init_vector)
 
           cipher.update(Base64.strict_decode64(encrypted)) + cipher.final
         end

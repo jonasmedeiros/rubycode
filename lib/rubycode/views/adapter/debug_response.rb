@@ -10,16 +10,20 @@ module RubyCode
       class DebugResponse
         def self.build(adapter_name:, body:)
           pastel = Pastel.new
-
-          content = []
-          content << ""
-          content << pastel.green.bold("=== DEBUG RESPONSE ===")
-          content << "#{pastel.bold("Adapter:")} #{adapter_name}"
-          content << ""
-          content << pastel.bold("Response:")
-          content << JSON.pretty_generate(body)
-          content << pastel.green.bold("=" * 22)
+          content = build_content_lines(pastel, adapter_name, body)
           content.join("\n")
+        end
+
+        def self.build_content_lines(pastel, adapter_name, body)
+          [
+            "",
+            pastel.green.bold("=== DEBUG RESPONSE ==="),
+            "#{pastel.bold("Adapter:")} #{adapter_name}",
+            "",
+            pastel.bold("Response:"),
+            JSON.pretty_generate(body),
+            pastel.green.bold("=" * 22)
+          ]
         end
       end
     end

@@ -10,147 +10,128 @@ prompt = TTY::Prompt.new
 def setup_wizard(prompt)
   puts RubyCode::Views::Cli::SetupTitle.build
 
-  # 1. Adapter selection
-  adapter = prompt.select(I18n.t("rubycode.setup.adapter_prompt"), {
-                            I18n.t("rubycode.adapters.ollama.name") => :ollama,
-                            I18n.t("rubycode.adapters.deepseek.name") => :deepseek,
-                            I18n.t("rubycode.adapters.gemini.name") => :gemini,
-                            I18n.t("rubycode.adapters.openai.name") => :openai,
-                            I18n.t("rubycode.adapters.openrouter.name") => :openrouter
-                          })
+  adapter = select_adapter(prompt)
+  model = select_model_for_adapter(prompt, adapter)
+  url = get_url_for_adapter(prompt, adapter)
 
-  # 2. Model selection (per adapter)
-  model = case adapter
-          when :ollama
-            ollama_models = I18n.t("rubycode.models.ollama")
-            prompt.select(I18n.t("rubycode.setup.model_prompt"), {
-                            ollama_models[:powerful][:label] => ollama_models[:powerful][:name],
-                            ollama_models[:advanced][:label] => ollama_models[:advanced][:name],
-                            ollama_models[:reasoning][:label] => ollama_models[:reasoning][:name],
-                            ollama_models[:fast][:label] => ollama_models[:fast][:name]
-                          })
-          when :deepseek
-            deepseek_models = I18n.t("rubycode.models.deepseek")
-            prompt.select(I18n.t("rubycode.setup.model_prompt"), {
-                            deepseek_models[:fast][:label] => deepseek_models[:fast][:name],
-                            deepseek_models[:reasoning][:label] => deepseek_models[:reasoning][:name]
-                          })
-          when :gemini
-            gemini_models = I18n.t("rubycode.models.gemini")
-            prompt.select(I18n.t("rubycode.setup.model_prompt"), {
-                            gemini_models[:fast][:label] => gemini_models[:fast][:name],
-                            gemini_models[:lite][:label] => gemini_models[:lite][:name],
-                            gemini_models[:powerful][:label] => gemini_models[:powerful][:name],
-                            gemini_models[:experimental][:label] => gemini_models[:experimental][:name]
-                          })
-          when :openai
-            openai_models = I18n.t("rubycode.models.openai")
-            prompt.select(I18n.t("rubycode.setup.model_prompt"), {
-                            openai_models[:fast][:label] => openai_models[:fast][:name],
-                            openai_models[:balanced][:label] => openai_models[:balanced][:name],
-                            openai_models[:reasoning][:label] => openai_models[:reasoning][:name]
-                          })
-          when :openrouter
-            or_models = I18n.t("rubycode.models.openrouter")
-            prompt.select(I18n.t("rubycode.setup.model_prompt"), {
-                            or_models[:fast][:label] => or_models[:fast][:name],
-                            or_models[:balanced][:label] => or_models[:balanced][:name],
-                            or_models[:powerful][:label] => or_models[:powerful][:name],
-                            or_models[:alternative][:label] => or_models[:alternative][:name]
-                          })
-          end
+  configure_adapter_api_key(prompt, adapter) if adapter_requires_key?(adapter)
+  configure_exa_api_key(prompt) if prompt.yes?(I18n.t("rubycode.setup.configure_exa"), default: false)
 
-  # 3. URL (configurable for Ollama, hardcoded for others)
-  url = case adapter
-        when :ollama
-          prompt.ask(I18n.t("rubycode.setup.url_prompt"), default: "https://api.ollama.com")
-        when :deepseek
-          "https://api.deepseek.com/v1/chat/completions"
-        when :gemini
-          "https://generativelanguage.googleapis.com/v1beta/models"
-        when :openai
-          "https://api.openai.com/v1/chat/completions"
-        when :openrouter
-          "https://openrouter.ai/api/v1/chat/completions"
-        end
+  save_and_return_config(adapter, model, url)
+end
 
-  # 4. Handle API key if needed
-  adapter_info = I18n.t("rubycode.adapters.#{adapter}")
+def select_adapter(prompt)
+  prompt.select(I18n.t("rubycode.setup.adapter_prompt"), {
+                  I18n.t("rubycode.adapters.ollama.name") => :ollama,
+                  I18n.t("rubycode.adapters.deepseek.name") => :deepseek,
+                  I18n.t("rubycode.adapters.gemini.name") => :gemini,
+                  I18n.t("rubycode.adapters.openai.name") => :openai,
+                  I18n.t("rubycode.adapters.openrouter.name") => :openrouter
+                })
+end
+
+def select_model_for_adapter(prompt, adapter)
+  models = I18n.t("rubycode.models.#{adapter}")
+  choices = {}
+  models.each do |key, model_data|
+    # Skip the :default key which is just a string
+    next if %i[default].include?(key) || ["default"].include?(key)
+    # Skip if model_data is not a hash (defensive)
+    next unless model_data.is_a?(Hash)
+
+    label = model_data[:label] || model_data["label"]
+    name = model_data[:name] || model_data["name"]
+    choices[label] = name
+  end
+  prompt.select(I18n.t("rubycode.setup.model_prompt"), choices)
+end
+
+def get_url_for_adapter(prompt, adapter)
+  case adapter
+  when :ollama
+    prompt.ask(I18n.t("rubycode.setup.url_prompt"), default: "https://api.ollama.com")
+  when :deepseek
+    "https://api.deepseek.com/v1/chat/completions"
+  when :gemini
+    "https://generativelanguage.googleapis.com/v1beta/models"
+  when :openai
+    "https://api.openai.com/v1/chat/completions"
+  when :openrouter
+    "https://openrouter.ai/api/v1/chat/completions"
+  end
+end
+
+def adapter_requires_key?(adapter)
+  I18n.t("rubycode.adapters.#{adapter}")[:requires_key]
+end
+
+def configure_adapter_api_key(prompt, adapter)
   env_var_name = "#{adapter.to_s.upcase}_API_KEY"
+  saved_exists = RubyCode::Models::ApiKey.key_exists?(adapter: adapter)
+  env_exists = ENV.fetch(env_var_name, nil)
 
-  if adapter_info[:requires_key]
-    # Check if API key exists in database
-    saved_key_exists = RubyCode::Models::ApiKey.key_exists?(adapter: adapter)
-    env_key_exists = ENV.fetch(env_var_name, nil)
+  if saved_exists
+    handle_existing_saved_key(prompt, adapter)
+  elsif env_exists
+    handle_existing_env_key(prompt, adapter, env_var_name)
+  else
+    prompt_for_required_key(prompt, adapter)
+  end
+end
 
-    if saved_key_exists
-      # Ask if they want to use the saved key
-      use_saved_key = prompt.yes?(I18n.t("rubycode.setup.use_saved_api_key", adapter: adapter.to_s.upcase),
-                                  default: true)
+def handle_existing_saved_key(prompt, adapter)
+  use_saved = prompt.yes?(I18n.t("rubycode.setup.use_saved_api_key", adapter: adapter.to_s.upcase), default: true)
+  return if use_saved
 
-      unless use_saved_key
-        # Prompt for new API key
-        new_key = prompt.mask("#{I18n.t("rubycode.setup.api_key_prompt", adapter: adapter.to_s.upcase)} " \
-                              "#{I18n.t("rubycode.setup.api_key_optional")}")
+  new_key = prompt.mask("#{I18n.t("rubycode.setup.api_key_prompt", adapter: adapter.to_s.upcase)} " \
+                        "#{I18n.t("rubycode.setup.api_key_optional")}")
+  RubyCode::Models::ApiKey.save_key(adapter: adapter, api_key: new_key) if new_key && !new_key.empty?
+end
 
-        RubyCode::Models::ApiKey.save_key(adapter: adapter, api_key: new_key) if new_key && !new_key.empty?
-      end
-    elsif env_key_exists
-      # Ask if they want to save the ENV key to database
-      save_to_db = prompt.yes?(I18n.t("rubycode.setup.save_env_key_to_db", adapter: adapter.to_s.upcase),
-                               default: true)
+def handle_existing_env_key(prompt, adapter, env_var_name)
+  save_to_db = prompt.yes?(I18n.t("rubycode.setup.save_env_key_to_db", adapter: adapter.to_s.upcase), default: true)
+  RubyCode::Models::ApiKey.save_key(adapter: adapter, api_key: ENV.fetch(env_var_name, nil)) if save_to_db
+end
 
-      RubyCode::Models::ApiKey.save_key(adapter: adapter, api_key: ENV.fetch(env_var_name, nil)) if save_to_db
-    else
-      # No saved key and no ENV key - must provide one
-      puts RubyCode::Views::Cli::ApiKeyMissing.build(adapter: adapter)
+def prompt_for_required_key(prompt, adapter)
+  puts RubyCode::Views::Cli::ApiKeyMissing.build(adapter: adapter)
+  api_key = prompt.mask(I18n.t("rubycode.setup.api_key_prompt", adapter: adapter.to_s.upcase))
 
-      api_key = prompt.mask(I18n.t("rubycode.setup.api_key_prompt", adapter: adapter.to_s.upcase))
-
-      if api_key.nil? || api_key.empty?
-        puts "\n#{I18n.t("rubycode.setup.api_key_required")}\n"
-        exit 1
-      end
-
-      RubyCode::Models::ApiKey.save_key(adapter: adapter, api_key: api_key)
-    end
+  if api_key.nil? || api_key.empty?
+    puts "\n#{I18n.t("rubycode.setup.api_key_required")}\n"
+    exit 1
   end
 
-  # 5. Optional: Configure Exa.ai API key for web search
-  configure_exa = prompt.yes?(I18n.t("rubycode.setup.configure_exa"),
-                              default: false)
+  RubyCode::Models::ApiKey.save_key(adapter: adapter, api_key: api_key)
+end
 
-  if configure_exa
-    saved_exa_key_exists = RubyCode::Models::ApiKey.key_exists?(adapter: :exa)
-    env_exa_key_exists = ENV.fetch("EXA_API_KEY", nil)
+def configure_exa_api_key(prompt)
+  saved_exists = RubyCode::Models::ApiKey.key_exists?(adapter: :exa)
+  env_exists = ENV.fetch("EXA_API_KEY", nil)
 
-    if saved_exa_key_exists
-      use_saved_exa = prompt.yes?(I18n.t("rubycode.setup.use_saved_api_key", adapter: "EXA"),
-                                  default: true)
-
-      unless use_saved_exa
-        new_exa_key = prompt.mask("#{I18n.t("rubycode.setup.api_key_prompt", adapter: "EXA")} " \
-                                  "#{I18n.t("rubycode.setup.api_key_optional")}")
-
-        RubyCode::Models::ApiKey.save_key(adapter: :exa, api_key: new_exa_key) if new_exa_key && !new_exa_key.empty?
-      end
-    elsif env_exa_key_exists
-      save_exa_to_db = prompt.yes?(I18n.t("rubycode.setup.save_env_key_to_db", adapter: "EXA"),
-                                   default: true)
-
-      RubyCode::Models::ApiKey.save_key(adapter: :exa, api_key: ENV.fetch("EXA_API_KEY", nil)) if save_exa_to_db
-    else
-      exa_key = prompt.mask("#{I18n.t("rubycode.setup.api_key_prompt", adapter: "EXA")} " \
-                            "#{I18n.t("rubycode.setup.api_key_optional")}")
-
-      RubyCode::Models::ApiKey.save_key(adapter: :exa, api_key: exa_key) if exa_key && !exa_key.empty?
-    end
+  if saved_exists
+    handle_existing_saved_key(prompt, :exa)
+  elsif env_exists
+    handle_exa_env_key(prompt)
+  else
+    prompt_for_optional_exa_key(prompt)
   end
+end
 
-  # 6. Save config
+def handle_exa_env_key(prompt)
+  save_to_db = prompt.yes?(I18n.t("rubycode.setup.save_env_key_to_db", adapter: "EXA"), default: true)
+  RubyCode::Models::ApiKey.save_key(adapter: :exa, api_key: ENV.fetch("EXA_API_KEY", nil)) if save_to_db
+end
+
+def prompt_for_optional_exa_key(prompt)
+  exa_key = prompt.mask("#{I18n.t("rubycode.setup.api_key_prompt", adapter: "EXA")} " \
+                        "#{I18n.t("rubycode.setup.api_key_optional")}")
+  RubyCode::Models::ApiKey.save_key(adapter: :exa, api_key: exa_key) if exa_key && !exa_key.empty?
+end
+
+def save_and_return_config(adapter, model, url)
   config = { adapter: adapter, model: model, url: url }
   RubyCode::ConfigManager.save(config)
-
   puts RubyCode::Views::Cli::ConfigSaved.build
   config
 end
@@ -225,49 +206,69 @@ if adapter_info[:requires_key]
   end
 end
 
+ChatContext = Struct.new(:prompt, :client, :adapter, :model, :full_path, :debug_mode)
+
+def run_chat_loop(context)
+  loop do
+    user_input = get_user_input(context.prompt)
+    break if user_input.nil?
+
+    next if handle_special_command(user_input, context)
+
+    process_user_message(context.client, user_input)
+  end
+end
+
+def get_user_input(prompt)
+  prompt.ask("You: ")
+rescue StandardError
+  nil
+end
+
+def handle_special_command(input, context)
+  case input.strip.downcase
+  when "exit", "quit"
+    puts RubyCode::Views::Cli::ExitMessage.build
+    exit 0
+  when "clear"
+    context.client.clear_memory
+    puts RubyCode::Views::Cli::MemoryClearedMessage.build
+    true
+  when "config"
+    show_config_and_reconfigure(context)
+    true
+  else
+    false
+  end
+end
+
+def show_config_and_reconfigure(context)
+  puts RubyCode::Views::Cli::ConfigurationTable.build(
+    adapter: context.adapter,
+    model: context.model,
+    directory: context.full_path,
+    debug_mode: context.debug_mode
+  )
+
+  return unless context.prompt.yes?(I18n.t("rubycode.setup.reconfigure"), default: false)
+
+  puts RubyCode::Views::Cli::RestartMessage.build
+  setup_wizard(context.prompt)
+end
+
+def process_user_message(client, user_input)
+  response = client.ask(prompt: user_input)
+  puts RubyCode::Views::Cli::ResponseBox.build(response: response)
+rescue Interrupt
+  puts RubyCode::Views::Cli::InterruptMessage.build
+rescue StandardError => e
+  puts RubyCode::Views::Cli::ErrorDisplay.build(error: e)
+end
+
 client = RubyCode::Client.new(tty_prompt: prompt)
 
 puts RubyCode::Views::Cli::ReadyMessage.build
 
-loop do
-  user_input = begin
-    prompt.ask("You: ")
-  rescue StandardError
-    nil
-  end
-  break if user_input.nil?
-
-  case user_input.strip.downcase
-  when "exit", "quit"
-    puts RubyCode::Views::Cli::ExitMessage.build
-    break
-  when "clear"
-    client.clear_memory
-    puts RubyCode::Views::Cli::MemoryClearedMessage.build
-    next
-  when "config"
-    # Show current config
-    puts RubyCode::Views::Cli::ConfigurationTable.build(
-      adapter: adapter,
-      model: model,
-      directory: full_path,
-      debug_mode: debug_mode
-    )
-
-    # Reconfigure?
-    if prompt.yes?(I18n.t("rubycode.setup.reconfigure"), default: false)
-      puts RubyCode::Views::Cli::RestartMessage.build
-      setup_wizard(prompt)
-    end
-    next
-  end
-
-  begin
-    response = client.ask(prompt: user_input)
-    puts RubyCode::Views::Cli::ResponseBox.build(response: response)
-  rescue Interrupt
-    puts RubyCode::Views::Cli::InterruptMessage.build
-  rescue StandardError => e
-    puts RubyCode::Views::Cli::ErrorDisplay.build(error: e)
-  end
-end
+debug_mode = false # Debug mode not yet implemented
+context = ChatContext.new(prompt, client, adapter, model, full_path, debug_mode)
+run_chat_loop(context)

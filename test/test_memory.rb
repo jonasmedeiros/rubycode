@@ -187,4 +187,61 @@ class TestMemory < Minitest::Test
     last_assistant = @memory.last_assistant_message
     assert_equal tool_calls, last_assistant.tool_calls
   end
+
+  def test_to_llm_format_with_window_returns_all_when_count_less_than_window
+    5.times { |i| @memory.add_message(role: "user", content: "Message #{i}") }
+
+    llm_format = @memory.to_llm_format(window_size: 10)
+    assert_equal 5, llm_format.count
+  end
+
+  def test_to_llm_format_with_window_keeps_first_and_last_n
+    15.times { |i| @memory.add_message(role: "user", content: "Message #{i}") }
+
+    llm_format = @memory.to_llm_format(window_size: 5)
+    # Should have: first + last 5 = 6 messages (deduplicated if first is in last 5)
+    assert llm_format.count <= 6
+    assert_equal "Message 0", llm_format.first[:content] # First message
+    assert_equal "Message 14", llm_format.last[:content] # Last message
+  end
+
+  def test_to_llm_format_prunes_tool_results_in_middle
+    @memory.add_message(role: "user", content: "Task")
+    5.times do
+      @memory.add_message(role: "assistant", content: "Calling tool")
+      @memory.add_message(role: "user", content: "Tool 'bash' result:\noutput")
+    end
+    @memory.add_message(role: "user", content: "Recent message")
+
+    llm_format = @memory.to_llm_format(window_size: 2, prune_tool_results: true)
+
+    # Check that middle tool results are cleared
+    pruned = llm_format.select { |m| m[:content] == "[Tool result cleared]" }
+    assert pruned.any?, "Expected some tool results to be pruned"
+  end
+
+  def test_to_llm_format_with_pruning_disabled
+    @memory.add_message(role: "user", content: "Task")
+    3.times { @memory.add_message(role: "user", content: "Tool 'bash' result:\noutput") }
+    @memory.add_message(role: "user", content: "Recent")
+
+    llm_format = @memory.to_llm_format(window_size: 2, prune_tool_results: false)
+
+    # Tool results should not be cleared
+    cleared = llm_format.select { |m| m[:content] == "[Tool result cleared]" }
+    assert_equal 0, cleared.count
+  end
+
+  def test_to_llm_format_deduplicates_first_message_in_window
+    3.times { |i| @memory.add_message(role: "user", content: "Message #{i}") }
+
+    llm_format = @memory.to_llm_format(window_size: 5)
+    # Should have 3 messages, no duplicates
+    assert_equal 3, llm_format.count
+  end
+
+  def test_to_llm_format_empty_memory
+    llm_format = @memory.to_llm_format(window_size: 10)
+    assert_equal 0, llm_format.count
+  end
 end

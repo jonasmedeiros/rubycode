@@ -93,7 +93,8 @@ module RubyCode
           line = line.strip
           next if line.empty?
 
-          process_markdown_line(line, current_result, results, collecting_text)
+          result = process_markdown_line(line, current_result, results, collecting_text)
+          collecting_text = result[:collecting]
         end
 
         finalize_result(current_result, results)
@@ -103,21 +104,34 @@ module RubyCode
       end
 
       def process_markdown_line(line, current_result, results, collecting_text)
-        if line.start_with?("Title:")
-          save_current_result(current_result, results)
-          start_new_result(line, current_result)
-          false
-        elsif line.start_with?("URL:") && current_result[:title]
-          current_result[:url] = line.sub("URL:", "").strip
-          collecting_text
-        elsif line.start_with?("Text:") && current_result[:title]
-          current_result[:snippet] = line.sub("Text:", "").strip
-          true
-        elsif collecting_text && current_result[:title]
-          append_text_if_valid(line, current_result)
-        else
-          collecting_text
-        end
+        return handle_title_line(line, current_result, results) if line.start_with?("Title:")
+        return handle_url_line(line, current_result, collecting_text) if line.start_with?("URL:")
+        return handle_text_line(line, current_result) if line.start_with?("Text:")
+
+        handle_content_line(line, current_result, collecting_text)
+      end
+
+      def handle_title_line(line, current_result, results)
+        save_current_result(current_result, results)
+        start_new_result(line, current_result)
+        { collecting: false }
+      end
+
+      def handle_url_line(line, current_result, collecting_text)
+        current_result[:url] = line.sub("URL:", "").strip if current_result[:title]
+        { collecting: collecting_text }
+      end
+
+      def handle_text_line(line, current_result)
+        current_result[:snippet] = line.sub("Text:", "").strip if current_result[:title]
+        { collecting: true }
+      end
+
+      def handle_content_line(line, current_result, collecting_text)
+        return { collecting: collecting_text } unless collecting_text && current_result[:title]
+
+        append_text_if_valid(line, current_result)
+        { collecting: collecting_text }
       end
 
       def save_current_result(current_result, results)

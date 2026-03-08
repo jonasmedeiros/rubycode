@@ -10,29 +10,37 @@ module RubyCode
         def self.build(result:)
           pastel = Pastel.new
           metadata = result.metadata || {}
-          url = metadata[:url] || "Unknown URL"
           content = result.content || ""
+
+          lines = build_header_lines(pastel, metadata, content)
+          lines.concat(build_preview_lines(pastel, content))
+          lines << ""
+
+          lines.join("\n")
+        end
+
+        def self.build_header_lines(pastel, metadata, content)
+          url = metadata[:url] || "Unknown URL"
           size_kb = (content.bytesize / 1024.0).round(1)
           size_bytes = content.bytesize
 
-          lines = [
+          [
             "",
             "   #{pastel.cyan("📥")} Fetched from: #{pastel.bold(url)}",
             "   #{pastel.dim("Status:")} Success",
             "   #{pastel.dim("Size:")} #{size_kb} KB (#{size_bytes} bytes)"
           ]
+        end
 
-          # Show first line preview if available
+        def self.build_preview_lines(pastel, content)
           first_line = content.lines.first&.strip || ""
-          if first_line.length.positive?
-            lines << ""
-            lines << pastel.dim("   Preview:")
-            lines << pastel.dim("   #{truncate(first_line, 100)}")
-          end
+          return [] unless first_line.length.positive?
 
-          lines << ""
-
-          lines.join("\n")
+          [
+            "",
+            pastel.dim("   Preview:"),
+            pastel.dim("   #{truncate(first_line, 100)}")
+          ]
         end
 
         def self.truncate(text, max_length)

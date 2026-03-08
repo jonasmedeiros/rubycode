@@ -5,7 +5,7 @@ module RubyCode
   class Configuration
     attr_accessor :adapter, :url, :model, :root_path,
                   :http_read_timeout, :http_open_timeout, :max_retries, :retry_base_delay,
-                  :adapter_request_delay
+                  :adapter_request_delay, :memory_window, :prune_tool_results
 
     def initialize
       @adapter = :ollama
@@ -21,6 +21,10 @@ module RubyCode
 
       # Rate limiting configuration
       @adapter_request_delay = 1.5 # Delay between consecutive requests (seconds)
+
+      # Memory optimization configuration
+      @memory_window = 10          # Keep last N messages for context
+      @prune_tool_results = true   # Replace old tool results with placeholder
     end
 
     # Load configuration from a hash

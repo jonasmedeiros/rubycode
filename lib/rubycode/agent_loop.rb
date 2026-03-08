@@ -36,16 +36,7 @@ module RubyCode
 
         content, tool_calls = llm_response
 
-        if tool_calls.empty?
-          # Skip empty tool call handling if last response was an adapter error
-          if @last_response_was_error
-            @last_response_was_error = false # Reset flag
-            next # Continue loop
-          end
-
-          result = @response_handler.handle_empty_tool_calls(content, iteration, total_tool_calls)
-          return result if result
-        end
+        next if handle_empty_tool_calls_case(content, tool_calls, iteration, total_tool_calls)
 
         total_tool_calls += tool_calls.length
         return @response_handler.handle_max_tool_calls(content, total_tool_calls) if total_tool_calls > MAX_TOOL_CALLS
@@ -54,13 +45,31 @@ module RubyCode
         return @response_handler.finalize_response(done_result, iteration, total_tool_calls) if done_result
       end
     rescue RubyCode::AdapterRetryExhaustedError => e
-      # Return error message when LLM server is unavailable
+      build_retry_exhausted_message(e)
+    end
+
+    def handle_empty_tool_calls_case(content, tool_calls, iteration, total_tool_calls)
+      return false unless tool_calls.empty?
+
+      # Skip empty tool call handling if last response was an adapter error
+      if @last_response_was_error
+        @last_response_was_error = false # Reset flag
+        return true # Continue loop
+      end
+
+      result = @response_handler.handle_empty_tool_calls(content, iteration, total_tool_calls)
+      return result if result
+
+      false
+    end
+
+    def build_retry_exhausted_message(error)
       "\n❌ Unable to reach LLM server after multiple retries.\n\n" \
-      "Error: #{e.message}\n\n" \
-      "Please check:\n  " \
-      "• Is your LLM server running?\n  " \
-      "• Are you being rate limited? (wait a few minutes)\n  " \
-      "• Is the server URL correct in your config?\n"
+        "Error: #{error.message}\n\n" \
+        "Please check:\n  " \
+        "• Is your LLM server running?\n  " \
+        "• Are you being rate limited? (wait a few minutes)\n  " \
+        "• Is the server URL correct in your config?\n"
     end
 
     private
@@ -68,33 +77,12 @@ module RubyCode
     def llm_response
       puts Views::AgentLoop::ThinkingStatus.build
 
-      messages = @memory.to_llm_format
-      response_body = @adapter.generate(
-        messages: messages,
-        system: @system_prompt,
-        tools: Tools.definitions
-      )
+      response_body = fetch_llm_response
+      display_response_info(response_body)
 
-      puts Views::AgentLoop::ResponseReceived.build
+      content, tool_calls = extract_message_parts(response_body)
 
-      # Display token info
-      tokens = @adapter.current_request_tokens
-      cumulative = @adapter.total_tokens_counter
-      puts Views::AgentLoop::TokenSummary.build(
-        tokens: tokens,
-        adapter: @config.adapter,
-        model: @config.model,
-        cumulative: cumulative
-      )
-
-      assistant_message = response_body["message"]
-      content = assistant_message["content"] || ""
-      tool_calls = assistant_message["tool_calls"] || []
-
-      # Reset rate limit error counter on successful response
-      @consecutive_rate_limit_errors = 0
-      @last_response_was_error = false # Reset error flag on successful response
-
+      reset_error_tracking
       @memory.add_message(role: "assistant", content: content, tool_calls: tool_calls)
 
       [content, tool_calls]
@@ -103,11 +91,53 @@ module RubyCode
       handle_retry_exhausted(e)
       raise e # Re-raise to stop the loop
     rescue RubyCode::AdapterError => e
-      # Check if this is a rate limit error and stop if we've hit the limit
-      if rate_limit_error?(e)
+      handle_adapter_error_with_rate_limiting(e)
+      @last_response_was_error = true # Mark as error to skip injection reminder
+      [nil, []] # Return empty to continue loop
+    end
+
+    def fetch_llm_response
+      messages = @memory.to_llm_format(
+        window_size: @config.memory_window,
+        prune_tool_results: @config.prune_tool_results
+      )
+      @adapter.generate(
+        messages: messages,
+        system: @system_prompt,
+        tools: Tools.definitions
+      )
+    end
+
+    def display_response_info(_response_body)
+      puts Views::AgentLoop::ResponseReceived.build
+
+      tokens = @adapter.current_request_tokens
+      cumulative = @adapter.total_tokens_counter
+      puts Views::AgentLoop::TokenSummary.build(
+        tokens: tokens,
+        adapter: @config.adapter,
+        model: @config.model,
+        cumulative: cumulative
+      )
+    end
+
+    def extract_message_parts(response_body)
+      assistant_message = response_body["message"]
+      content = assistant_message["content"] || ""
+      tool_calls = assistant_message["tool_calls"] || []
+      [content, tool_calls]
+    end
+
+    def reset_error_tracking
+      @consecutive_rate_limit_errors = 0
+      @last_response_was_error = false
+    end
+
+    def handle_adapter_error_with_rate_limiting(error)
+      if rate_limit_error?(error)
         @consecutive_rate_limit_errors += 1
         if @consecutive_rate_limit_errors >= MAX_CONSECUTIVE_RATE_LIMIT_ERRORS
-          handle_rate_limit_exhausted(e)
+          handle_rate_limit_exhausted(error)
           raise AdapterRetryExhaustedError,
                 "Rate limit exceeded after #{MAX_CONSECUTIVE_RATE_LIMIT_ERRORS} consecutive attempts"
         end
@@ -116,9 +146,7 @@ module RubyCode
         @consecutive_rate_limit_errors = 0
       end
 
-      handle_adapter_error(e)
-      @last_response_was_error = true # Mark as error to skip injection reminder
-      [nil, []] # Return empty to continue loop
+      handle_adapter_error(error)
     end
 
     def handle_retry_exhausted(error)

@@ -38,30 +38,35 @@ module RubyCode
       end
 
       def fetch_and_parse_results(query, max_results)
-        # Initialize multi-provider with fallback strategy
         @multi_provider = SearchProviders::MultiProvider.new
-
-        # Primary: Exa.ai (AI-native search, PAID with free tier)
-        exa_api_key = Models::ApiKey.get_key(adapter: :exa) || ENV.fetch("EXA_API_KEY", nil)
-        if exa_api_key && !exa_api_key.empty?
-          @multi_provider.add_provider(SearchProviders::ExaAi.new(api_key: exa_api_key))
-        end
-
-        # Fallback 1: DuckDuckGo Instant API (FREE)
-        @multi_provider.add_provider(SearchProviders::DuckduckgoInstant.new)
-
-        # Fallback 2: Brave Search API (PAID, if configured)
-        brave_api_key = ENV.fetch("BRAVE_API_KEY", nil)
-        if brave_api_key && !brave_api_key.empty?
-          @multi_provider.add_provider(SearchProviders::BraveSearch.new(
-                                         api_key: brave_api_key
-                                       ))
-        end
-
-        # Search with automatic fallback
+        configure_search_providers
         @multi_provider.search(query, max_results: max_results * 2) # Get more to filter
       rescue StandardError => e
         raise ToolError, "All search providers failed: #{e.message}"
+      end
+
+      def configure_search_providers
+        add_exa_provider
+        add_duckduckgo_provider
+        add_brave_provider
+      end
+
+      def add_exa_provider
+        exa_api_key = Models::ApiKey.get_key(adapter: :exa) || ENV.fetch("EXA_API_KEY", nil)
+        return unless exa_api_key && !exa_api_key.empty?
+
+        @multi_provider.add_provider(SearchProviders::ExaAi.new(api_key: exa_api_key))
+      end
+
+      def add_duckduckgo_provider
+        @multi_provider.add_provider(SearchProviders::DuckduckgoInstant.new)
+      end
+
+      def add_brave_provider
+        brave_api_key = ENV.fetch("BRAVE_API_KEY", nil)
+        return unless brave_api_key && !brave_api_key.empty?
+
+        @multi_provider.add_provider(SearchProviders::BraveSearch.new(api_key: brave_api_key))
       end
 
       def verify_results(results, max_results)
