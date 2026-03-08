@@ -59,14 +59,25 @@ Then execute:
 bundle install
 ```
 
-## Usage
+## Quick Start
 
-### Basic Usage
+After installation, you can use RubyCode in your Ruby projects:
 
-#### Interactive CLI (Recommended)
+```ruby
+require "rubycode"
 
-```bash
-rubycode
+# Configure the LLM adapter
+RubyCode.configure do |config|
+  config.adapter = :ollama
+  config.url = "https://api.ollama.com"
+  config.model = "qwen3-coder:480b-cloud"
+  config.root_path = Dir.pwd
+end
+
+# Create a client and ask a question
+client = RubyCode::Client.new
+response = client.ask(prompt: "Find the User model in the codebase")
+puts response
 ```
 
 The first time you run RubyCode, an interactive setup wizard will guide you through:
@@ -75,6 +86,10 @@ The first time you run RubyCode, an interactive setup wizard will guide you thro
 3. Entering API keys (saved securely with encryption)
 
 Your configuration is automatically saved and reloaded on subsequent runs.
+
+## Usage
+
+### Basic Usage
 
 #### Programmatic Usage
 
@@ -186,10 +201,10 @@ After checking out the repo, run `bundle install` to install dependencies.
 
 ```bash
 # Run all tests
-bundle exec rake test
+bin/test
 
-# Run tests without warnings
-bundle exec rake test 2>/dev/null
+# Or with rake
+bundle exec rake test
 
 # Run specific test file
 bundle exec rake test TEST=test/test_adapters.rb
