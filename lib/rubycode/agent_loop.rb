@@ -37,16 +37,14 @@ module RubyCode
         content, tool_calls = llm_response
 
         if tool_calls.empty?
-          # Skip injection reminder if last response was an adapter error
+          # Skip empty tool call handling if last response was an adapter error
           if @last_response_was_error
             @last_response_was_error = false # Reset flag
-            next # Continue loop without injection
+            next # Continue loop
           end
 
           result = @response_handler.handle_empty_tool_calls(content, iteration, total_tool_calls)
           return result if result
-
-          next # Continue loop for workaround case
         end
 
         total_tool_calls += tool_calls.length
@@ -68,7 +66,7 @@ module RubyCode
     private
 
     def llm_response
-      puts Views::AgentLoop::ThinkingStatus.build unless @config.debug
+      puts Views::AgentLoop::ThinkingStatus.build
 
       messages = @memory.to_llm_format
       response_body = @adapter.generate(
@@ -77,19 +75,17 @@ module RubyCode
         tools: Tools.definitions
       )
 
-      puts Views::AgentLoop::ResponseReceived.build unless @config.debug
+      puts Views::AgentLoop::ResponseReceived.build
 
       # Display token info
-      unless @config.debug
-        tokens = @adapter.current_request_tokens
-        cumulative = @adapter.total_tokens_counter
-        puts Views::AgentLoop::TokenSummary.build(
-          tokens: tokens,
-          adapter: @config.adapter,
-          model: @config.model,
-          cumulative: cumulative
-        )
-      end
+      tokens = @adapter.current_request_tokens
+      cumulative = @adapter.total_tokens_counter
+      puts Views::AgentLoop::TokenSummary.build(
+        tokens: tokens,
+        adapter: @config.adapter,
+        model: @config.model,
+        cumulative: cumulative
+      )
 
       assistant_message = response_body["message"]
       content = assistant_message["content"] || ""
@@ -99,7 +95,7 @@ module RubyCode
       @consecutive_rate_limit_errors = 0
       @last_response_was_error = false # Reset error flag on successful response
 
-      @memory.add_message(role: "assistant", content: content)
+      @memory.add_message(role: "assistant", content: content, tool_calls: tool_calls)
 
       [content, tool_calls]
     rescue RubyCode::AdapterRetryExhaustedError => e
@@ -148,7 +144,7 @@ module RubyCode
     end
 
     def execute_tool_calls(tool_calls, iteration)
-      puts Views::AgentLoop::IterationHeader.build(iteration: iteration, tool_calls: tool_calls) unless @config.debug
+      puts Views::AgentLoop::IterationHeader.build(iteration: iteration, tool_calls: tool_calls)
 
       done_result = nil
       tool_calls.each do |tool_call|
@@ -160,7 +156,7 @@ module RubyCode
         end
       end
 
-      puts Views::AgentLoop::IterationFooter.build unless @config.debug
+      puts Views::AgentLoop::IterationFooter.build
       done_result
     end
 

@@ -10,9 +10,8 @@ class TestRubycode < Minitest::Test
   def test_configuration_has_default_values
     config = RubyCode::Configuration.new
     assert_equal :ollama, config.adapter
-    assert_equal "http://localhost:11434", config.url
-    assert_equal "deepseek-r1:8b", config.model
-    refute config.debug
+    assert_equal "https://api.ollama.com", config.url
+    assert_equal "qwen3-coder:480b-cloud", config.model
   end
 
   def test_client_can_be_instantiated

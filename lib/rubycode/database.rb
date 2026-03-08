@@ -45,6 +45,13 @@ module RubyCode
           String :content, null: false, text: true
           DateTime :created_at, default: Sequel::CURRENT_TIMESTAMP
         end
+
+        # Add tool_calls column if it doesn't exist (migration for existing databases)
+        return if @db.schema(:messages).any? { |col| col[0] == :tool_calls }
+
+        @db.alter_table(:messages) do
+          add_column :tool_calls, String, text: true, null: true
+        end
       end
 
       def create_api_keys_table

@@ -7,7 +7,6 @@ class TestIntegration < Minitest::Test
     RubyCode.configure do |config|
       config.root_path = Dir.pwd
       config.adapter = :ollama
-      config.debug = false
     end
   end
 

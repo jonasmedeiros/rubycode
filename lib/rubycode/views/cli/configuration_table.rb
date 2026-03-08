@@ -8,7 +8,7 @@ module RubyCode
     module Cli
       # Builds configuration table display
       class ConfigurationTable
-        def self.build(directory:, model:, debug_mode:, adapter: :ollama)
+        def self.build(directory:, model:, adapter: :ollama)
           pastel = Pastel.new
 
           table = TTY::Table.new(
@@ -16,8 +16,7 @@ module RubyCode
             rows: [
               ["Adapter", adapter.to_s.capitalize],
               ["Model", model],
-              ["Directory", directory],
-              ["Debug Mode", debug_mode ? pastel.green("ON") : pastel.dim("OFF")]
+              ["Directory", directory]
             ]
           )
 

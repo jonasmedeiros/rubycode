@@ -148,7 +148,7 @@ def setup_wizard(prompt)
   end
 
   # 6. Save config
-  config = { adapter: adapter, model: model, url: url, debug: false }
+  config = { adapter: adapter, model: model, url: url }
   RubyCode::ConfigManager.save(config)
 
   puts RubyCode::Views::Cli::ConfigSaved.build
@@ -166,14 +166,12 @@ if RubyCode::ConfigManager.exists?
   adapter = config[:adapter]
   model = config[:model]
   url = config[:url]
-  debug_default = config.fetch(:debug, false)
 else
   puts RubyCode::Views::Cli::FirstTimeSetup.build
   config = setup_wizard(prompt)
   adapter = config[:adapter]
   model = config[:model]
   url = config[:url]
-  debug_default = false
 end
 
 puts "\n#{RubyCode::Views::Welcome.build}"
@@ -191,25 +189,17 @@ unless Dir.exist?(full_path)
   exit 1
 end
 
-debug_mode = prompt.yes?("Enable debug mode?") do |q|
-  q.default debug_default
-end
-
 RubyCode.configure do |config|
   config.adapter = adapter
   config.url = url
   config.model = model
   config.root_path = full_path
-  config.debug = debug_mode
-
-  config.enable_tool_injection_workaround = true
 end
 
 puts RubyCode::Views::Cli::ConfigurationTable.build(
   adapter: adapter,
   model: model,
-  directory: full_path,
-  debug_mode: debug_mode
+  directory: full_path
 )
 
 # Ensure database is connected before checking for API keys

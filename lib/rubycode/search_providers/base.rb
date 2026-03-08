@@ -2,7 +2,6 @@
 
 require_relative "concerns/http_client"
 require_relative "concerns/error_handling"
-require_relative "concerns/debugging"
 
 module RubyCode
   module SearchProviders
@@ -10,7 +9,6 @@ module RubyCode
     class Base
       include Concerns::HttpClient
       include Concerns::ErrorHandling
-      include Concerns::Debugging
 
       def initialize(config: nil, api_key: nil)
         @config = config

@@ -3,7 +3,7 @@
 module RubyCode
   # Configuration class for Rubycode settings
   class Configuration
-    attr_accessor :adapter, :url, :model, :root_path, :debug, :enable_tool_injection_workaround,
+    attr_accessor :adapter, :url, :model, :root_path,
                   :http_read_timeout, :http_open_timeout, :max_retries, :retry_base_delay,
                   :adapter_request_delay
 
@@ -12,12 +12,6 @@ module RubyCode
       @url = "https://api.ollama.com"
       @model = "qwen3-coder:480b-cloud"
       @root_path = Dir.pwd
-      @debug = false # Set to true to see JSON requests/responses
-
-      # WORKAROUND for models that don't follow tool-calling instructions
-      # When enabled, injects reminder messages if model generates text instead of calling tools
-      # Enabled by default as most models need this nudge
-      @enable_tool_injection_workaround = true
 
       # HTTP timeout and retry configuration
       @http_read_timeout = 120 # 2 minutes for LLM inference
@@ -35,7 +29,6 @@ module RubyCode
       @adapter = hash[:adapter] if hash.key?(:adapter)
       @model = hash[:model] if hash.key?(:model)
       @url = hash[:url] if hash.key?(:url)
-      @debug = hash[:debug] if hash.key?(:debug)
       @root_path = hash[:root_path] if hash.key?(:root_path)
     end
   end

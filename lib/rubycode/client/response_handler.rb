@@ -21,15 +21,8 @@ module RubyCode
       end
 
       def handle_empty_tool_calls(content, iteration, total_tool_calls)
-        if @config.enable_tool_injection_workaround && iteration < 10
-          inject_tool_reminder(iteration)
-          return nil
-        end
-
-        unless @config.debug
-          puts Views::ResponseHandler::CompleteMessage.build(iteration: iteration,
-                                                             total_tool_calls: total_tool_calls)
-        end
+        puts Views::ResponseHandler::CompleteMessage.build(iteration: iteration,
+                                                           total_tool_calls: total_tool_calls)
         content
       end
 
@@ -42,21 +35,9 @@ module RubyCode
       end
 
       def finalize_response(done_result, iteration, total_tool_calls)
-        unless @config.debug
-          puts Views::ResponseHandler::AgentFinished.build(iteration: iteration,
-                                                           total_tool_calls: total_tool_calls + 1)
-        end
+        puts Views::ResponseHandler::AgentFinished.build(iteration: iteration,
+                                                         total_tool_calls: total_tool_calls + 1)
         done_result
-      end
-
-      private
-
-      def inject_tool_reminder(iteration)
-        puts Views::ResponseHandler::ToolInjectionWarning.build(iteration: iteration) unless @config.debug
-        @memory.add_message(
-          role: "user",
-          content: "You MUST call a tool. Do not respond with text. Call search, read, bash, or done tool now."
-        )
       end
     end
   end

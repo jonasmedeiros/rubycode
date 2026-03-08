@@ -2,7 +2,6 @@
 
 require_relative "concerns/error_handling"
 require_relative "concerns/http_client"
-require_relative "concerns/debugging"
 
 module RubyCode
   module Adapters
@@ -10,7 +9,6 @@ module RubyCode
     class Base
       include Concerns::ErrorHandling
       include Concerns::HttpClient
-      include Concerns::Debugging
 
       attr_reader :last_request_time, :current_request_tokens, :total_tokens_counter
 
@@ -28,11 +26,7 @@ module RubyCode
         payload = build_payload(messages, system, tools)
         request = build_request(uri, payload)
 
-        debug_request(uri, payload) if @config.debug
-
         body = send_request_with_retry(uri, request)
-
-        debug_response(body) if @config.debug
 
         @last_request_time = Time.now
 
@@ -80,15 +74,7 @@ module RubyCode
         return unless elapsed < min_delay
 
         sleep_time = min_delay - elapsed
-        debug_delay(sleep_time) if @config.debug
         sleep(sleep_time)
-      end
-
-      def debug_delay(sleep_time)
-        puts Views::Adapter::DebugDelay.build(
-          adapter_name: adapter_name,
-          delay: sleep_time.round(2)
-        )
       end
 
       # Concrete shared methods

@@ -19,11 +19,7 @@ module RubyCode
         payload = build_payload(messages, system, tools)
         request = build_request(uri, payload)
 
-        debug_request(uri, payload) if @config.debug
-
         body = send_request_with_retry(uri, request)
-
-        debug_response(body) if @config.debug
 
         @last_request_time = Time.now
 

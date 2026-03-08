@@ -23,20 +23,12 @@ module RubyCode
       end
 
       def display_tool_info(tool_name, arguments)
-        if @config.debug
-          puts Views::Formatter::DebugToolInfo.build(tool_name: tool_name, arguments: arguments)
-        else
-          display_minimal_tool_info(tool_name, arguments)
-        end
+        display_minimal_tool_info(tool_name, arguments)
       end
 
       def display_result(result, tool_name: nil)
-        if @config.debug
-          puts Views::Formatter::ToolResult.build(result: result)
-        elsif %w[web_search fetch].include?(tool_name)
-          # Show summaries for web tools even in non-debug mode
-          display_tool_summary(result, tool_name)
-        end
+        # Show summaries for web tools
+        display_tool_summary(result, tool_name) if %w[web_search fetch].include?(tool_name)
       end
 
       def display_info(message)

@@ -87,7 +87,6 @@ RubyCode.configure do |config|
   config.url = "https://api.ollama.com"
   config.model = "qwen3-coder:480b-cloud"
   config.root_path = Dir.pwd
-  config.debug = false
 end
 
 # Create a client and ask a question
@@ -105,8 +104,6 @@ RubyCode.configure do |config|
   config.url = "https://api.ollama.com"       # Provider API URL
   config.model = "qwen3-coder:480b-cloud"     # Model name
   config.root_path = Dir.pwd                  # Project root directory
-  config.debug = false                        # Enable debug output with request/response logging
-  config.enable_tool_injection_workaround = true  # Force tool usage (enabled by default)
 
   # HTTP timeout and retry settings
   config.http_read_timeout = 120              # Request timeout in seconds (default: 120)

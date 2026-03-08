@@ -126,4 +126,65 @@ class TestMemory < Minitest::Test
     latest_user = RubyCode::Memory.latest.where(role: "user").first
     assert_equal "Second user", latest_user[:content]
   end
+
+  def test_add_message_with_tool_calls
+    tool_calls = [{ "function" => { "name" => "bash", "arguments" => { "command" => "ls" } } }]
+    @memory.add_message(role: "assistant", content: "Running command", tool_calls: tool_calls)
+
+    messages = @memory.messages
+    assert_equal 1, messages.count
+    assert_equal tool_calls, messages.first.tool_calls
+  end
+
+  def test_add_message_object_with_tool_calls
+    tool_calls = [{ "function" => { "name" => "read", "arguments" => { "file_path" => "test.rb" } } }]
+    message = RubyCode::Message.new(role: "assistant", content: "Reading file", tool_calls: tool_calls)
+    @memory.add_message(message)
+
+    messages = @memory.messages
+    assert_equal tool_calls, messages.first.tool_calls
+  end
+
+  def test_to_llm_format_includes_tool_calls
+    tool_calls = [{ "function" => { "name" => "bash", "arguments" => { "command" => "pwd" } } }]
+    @memory.add_message(role: "assistant", content: "Executing", tool_calls: tool_calls)
+
+    llm_format = @memory.to_llm_format
+    assert_equal tool_calls, llm_format.first[:tool_calls]
+  end
+
+  def test_messages_without_tool_calls_still_work
+    @memory.add_message(role: "user", content: "Hello")
+
+    messages = @memory.messages
+    assert_nil messages.first.tool_calls
+
+    llm_format = @memory.to_llm_format
+    assert_equal({ role: "user", content: "Hello" }, llm_format.first)
+  end
+
+  def test_tool_calls_empty_array_serializes_as_nil
+    @memory.add_message(role: "assistant", content: "No tools", tool_calls: [])
+
+    messages = @memory.messages
+    assert_nil messages.first.tool_calls
+  end
+
+  def test_last_user_message_includes_tool_calls
+    tool_calls = [{ "function" => { "name" => "search", "arguments" => { "query" => "test" } } }]
+    @memory.add_message(role: "user", content: "First")
+    @memory.add_message(role: "user", content: "Second", tool_calls: tool_calls)
+
+    last_user = @memory.last_user_message
+    assert_equal tool_calls, last_user.tool_calls
+  end
+
+  def test_last_assistant_message_includes_tool_calls
+    tool_calls = [{ "function" => { "name" => "done", "arguments" => { "result" => "complete" } } }]
+    @memory.add_message(role: "assistant", content: "First")
+    @memory.add_message(role: "assistant", content: "Second", tool_calls: tool_calls)
+
+    last_assistant = @memory.last_assistant_message
+    assert_equal tool_calls, last_assistant.tool_calls
+  end
 end
