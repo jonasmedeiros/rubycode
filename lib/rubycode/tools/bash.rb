@@ -44,17 +44,47 @@ module RubyCode
 
       def execute_command(command)
         Dir.chdir(root_path) do
-          output = `#{command} 2>&1`
-          exit_code = $CHILD_STATUS.exitstatus
+          require "open3"
 
-          raise CommandExecutionError, "Command failed with exit code #{exit_code}:\n#{output}" unless exit_code.zero?
+          output, exit_code = run_command_with_streaming(command)
+          raise CommandExecutionError, build_error_message(exit_code, output) unless exit_code.zero?
 
-          CommandResult.new(
-            stdout: truncate_output(output),
-            stderr: "",
-            exit_code: exit_code
-          )
+          build_command_result(output, exit_code)
         end
+      end
+
+      def run_command_with_streaming(command)
+        output_lines = []
+        exit_code = 0
+
+        Open3.popen2e(command) do |stdin, stdout_err, wait_thr|
+          stdin.close # Close stdin to prevent interactive prompts
+          output_lines = stream_output(stdout_err)
+          exit_code = wait_thr.value.exitstatus
+        end
+
+        [output_lines.join, exit_code]
+      end
+
+      def stream_output(stdout_err)
+        output_lines = []
+        stdout_err.each_line do |line|
+          print line # Show output in real-time
+          output_lines << line
+        end
+        output_lines
+      end
+
+      def build_error_message(exit_code, output)
+        "Command failed with exit code #{exit_code}:\n#{output}"
+      end
+
+      def build_command_result(output, exit_code)
+        CommandResult.new(
+          stdout: truncate_output(output),
+          stderr: "",
+          exit_code: exit_code
+        )
       end
 
       def truncate_output(output)

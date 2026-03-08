@@ -9,3 +9,7 @@
 
 # Ignore built gem files
 *.gem
+
+# Environment variables (contains secrets)
+.env
+.env.local

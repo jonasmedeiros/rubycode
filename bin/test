@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Suppress warnings from gem dependencies
+$VERBOSE = nil
+
+# Run rake test
+exec "bundle", "exec", "rake", "test"

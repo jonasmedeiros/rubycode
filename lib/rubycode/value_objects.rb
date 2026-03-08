@@ -3,22 +3,26 @@
 module RubyCode
   # Represents a conversation message
   class Message
-    attr_reader :role, :content, :timestamp
+    attr_reader :role, :content, :timestamp, :tool_calls
 
-    def initialize(role:, content:)
+    def initialize(role:, content:, tool_calls: nil)
       @role = role
       @content = content
+      @tool_calls = tool_calls
       @timestamp = Time.now
     end
 
     def to_h
-      { role: role, content: content }
+      hash = { role: role, content: content }
+      hash[:tool_calls] = tool_calls if tool_calls && !tool_calls.empty?
+      hash
     end
 
     def ==(other)
       other.is_a?(Message) &&
         role == other.role &&
-        content == other.content
+        content == other.content &&
+        tool_calls == other.tool_calls
     end
   end
 

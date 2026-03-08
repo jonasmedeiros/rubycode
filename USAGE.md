@@ -67,27 +67,5 @@ The agent autonomously decides which tools to use to:
 Built following OpenCode's design:
 - **Tools**: Controlled, safe operations with validation
 - **Agent Loop**: LLM calls tools, we execute, loop until done
-- **History**: Maintains conversation context
+- **History**: Maintains conversation context including tool calls
 - **JSON Visibility**: Full transparency in debug mode
-
-## Workaround for Weak Tool-Calling Models
-
-If you're testing with models that have poor tool-calling capabilities (like qwen3-coder), enable the injection workaround:
-
-```ruby
-Rubycode.configure do |config|
-  config.enable_tool_injection_workaround = true
-end
-```
-
-**What this does:**
-- When the model generates text instead of calling a tool, it injects a reminder message
-- Forces the model to keep calling tools until it finds the answer
-- **OpenCode does NOT use this** - they rely on strong tool-calling models (Claude, GPT-4)
-- This is ONLY for testing/development with weaker models
-
-**When to disable:**
-- When using Claude (Anthropic)
-- When using GPT-4 (OpenAI)  
-- When using Gemini (Google)
-- In production

@@ -1,0 +1,22 @@
+{
+  "type": "function",
+  "function": {
+    "name": "web_search",
+    "description": "Search the web for information and return relevant links.\n\n- Primary provider: DuckDuckGo Instant Answer API (free, no API key needed)\n- Fallback provider: Brave Search API (optional, for better results if BRAVE_API_KEY is set)\n- Verifies each link exists before returning (HEAD request)\n- Returns title, URL, and snippet for each result\n- Filters out dead or inaccessible links\n- Requires user approval before making web requests\n- No CAPTCHA issues with API-based providers",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "The search query to look up on the web"
+        },
+        "max_results": {
+          "type": "integer",
+          "description": "Maximum number of verified results to return. Default: 5",
+          "default": 5
+        }
+      },
+      "required": ["query"]
+    }
+  }
+}

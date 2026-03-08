@@ -1,0 +1,22 @@
+{
+  "type": "function",
+  "function": {
+    "name": "fetch",
+    "description": "Fetch HTML content from a URL.\n\n- Retrieves web page content via HTTP/HTTPS\n- Optionally extracts text-only content (strips HTML tags)\n- No user approval required\n- 30 second timeout for requests\n- Returns raw HTML or extracted text",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The URL to fetch (must be http:// or https://)"
+        },
+        "extract_text": {
+          "type": "boolean",
+          "description": "Extract only text content, removing HTML tags. Default: false",
+          "default": false
+        }
+      },
+      "required": ["url"]
+    }
+  }
+}

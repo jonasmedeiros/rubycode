@@ -2,7 +2,7 @@
   "type": "function",
   "function": {
     "name": "bash",
-    "description": "Execute safe bash commands for exploring the filesystem and terminal operations.\n\nUse this for any command-line operations including:\n- Directory exploration: ls, find, tree\n- File inspection: cat, head, tail, wc, file\n- Content search: grep, rg (ripgrep)\n\nExamples:\n- grep -rn 'button' app/views\n- find . -name '*.rb' -type f\n- ls -la app/\n\nWhitelisted commands: ls, pwd, find, tree, cat, head, tail, wc, file, which, echo, grep, rg",
+    "description": "Execute bash commands and wait for completion. Commands run non-interactively (stdin is closed).\n\nUse this for:\n- Directory exploration: ls, find, tree\n- File inspection: cat, head, tail, wc, file\n- Content search: grep, rg\n- Development tools: bundle, rails, rake, ruby, gem, node, npm, yarn, git (requires approval)\n\nIMPORTANT: For Rails generators and similar tools, always use --force or --skip flags to avoid interactive prompts:\n- rails generate authentication --force (overwrites files)\n- rails generate model User --force\n- bundle install --quiet\n\nExamples:\n- grep -rn 'button' app/views\n- find . -name '*.rb' -type f\n- rails generate authentication --force\n- git status\n\nAuto-approved commands (no user confirmation needed): ls, pwd, find, tree, cat, head, tail, wc, file, which, echo, grep, rg",
     "parameters": {
       "type": "object",
       "properties": {

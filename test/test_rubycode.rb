@@ -10,23 +10,27 @@ class TestRubycode < Minitest::Test
   def test_configuration_has_default_values
     config = RubyCode::Configuration.new
     assert_equal :ollama, config.adapter
-    assert_equal "http://localhost:11434", config.url
-    assert_equal "deepseek-v3.1:671b-cloud", config.model
-    refute config.debug
+    assert_equal "https://api.ollama.com", config.url
+    assert_equal "qwen3-coder:480b-cloud", config.model
   end
 
   def test_client_can_be_instantiated
+    # Provide API key for test
+    ENV["OLLAMA_API_KEY"] = "test-key"
     client = RubyCode::Client.new
     refute_nil client
     refute_nil client.memory
+    ENV.delete("OLLAMA_API_KEY")
   end
 
   def test_tools_are_available
-    assert_equal 6, RubyCode::Tools::TOOLS.length
+    assert_equal 8, RubyCode::Tools::TOOLS.length
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Bash
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Read
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Search
     assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Done
+    assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::WebSearch
+    assert_includes RubyCode::Tools::TOOLS, RubyCode::Tools::Fetch
   end
 
   def test_tool_definitions_are_valid

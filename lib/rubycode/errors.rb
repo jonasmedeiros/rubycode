@@ -19,6 +19,15 @@ module RubyCode
   # Raised when command execution fails
   class CommandExecutionError < ToolError; end
 
+  # Base class for all network-related errors
+  class NetworkError < ToolError; end
+
+  # Raised when HTTP request fails
+  class HTTPError < NetworkError; end
+
+  # Raised when URL is invalid
+  class URLError < NetworkError; end
+
   # Base class for all adapter-related errors
   class AdapterError < Error; end
 
@@ -30,4 +39,7 @@ module RubyCode
 
   # Raised when all retry attempts are exhausted
   class AdapterRetryExhaustedError < AdapterError; end
+
+  # Base class for all search provider-related errors
+  class SearchProviderError < Error; end
 end

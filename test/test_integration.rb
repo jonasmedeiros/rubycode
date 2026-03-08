@@ -7,14 +7,15 @@ class TestIntegration < Minitest::Test
     RubyCode.configure do |config|
       config.root_path = Dir.pwd
       config.adapter = :ollama
-      config.debug = false
     end
   end
 
   def test_client_initialization
+    ENV["OLLAMA_API_KEY"] = "test-key"
     client = RubyCode::Client.new
     assert_instance_of RubyCode::Client, client
     assert_instance_of RubyCode::Memory, client.memory
+    ENV.delete("OLLAMA_API_KEY")
   end
 
   def test_bash_tool_instantiation

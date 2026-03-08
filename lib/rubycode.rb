@@ -1,15 +1,25 @@
 # frozen_string_literal: true
 
+# Load environment variables from .env file if present
+require "dotenv/load"
+
 require "i18n"
 require_relative "rubycode/version"
 require_relative "rubycode/errors"
 require_relative "rubycode/value_objects"
 require_relative "rubycode/configuration"
+require_relative "rubycode/config_manager"
 require_relative "rubycode/database"
 require_relative "rubycode/models"
 require_relative "rubycode/context_builder"
+require_relative "rubycode/token_counter"
+require_relative "rubycode/pricing"
 require_relative "rubycode/adapters/base"
 require_relative "rubycode/adapters/ollama"
+require_relative "rubycode/adapters/openrouter"
+require_relative "rubycode/adapters/deepseek"
+require_relative "rubycode/adapters/gemini"
+require_relative "rubycode/adapters/openai"
 require_relative "rubycode/tools"
 require_relative "rubycode/agent_loop"
 require_relative "rubycode/client"

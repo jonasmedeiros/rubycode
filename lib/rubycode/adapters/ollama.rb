@@ -5,49 +5,49 @@ require "json"
 
 module RubyCode
   module Adapters
-    # Ollama adapter for local LLM integration
+    # Ollama adapter for cloud LLM integration
     class Ollama < Base
+      def initialize(config)
+        super
+        validate_api_key!
+      end
+
       def generate(messages:, system: nil, tools: nil)
-        uri = URI("#{@config.url}/api/chat")
+        enforce_rate_limit_delay
+
+        uri = build_uri
         payload = build_payload(messages, system, tools)
         request = build_request(uri, payload)
 
-        debug_request(uri, payload) if @config.debug
-
         body = send_request_with_retry(uri, request)
 
-        debug_response(body) if @config.debug
+        @last_request_time = Time.now
+
+        # Extract and track tokens
+        @current_request_tokens = extract_tokens(body)
+        @total_tokens_counter += @current_request_tokens
 
         body
+      rescue AdapterError => e
+        # If model doesn't support tools, provide helpful error message
+        raise AdapterError, build_tools_error_message if tools && e.message.include?("does not support tools")
+
+        raise e
       end
 
       private
 
-      def send_request_with_retry(uri, request)
-        attempt = 0
-
-        begin
-          attempt += 1
-          send_request(uri, request)
-        rescue AdapterTimeoutError, AdapterConnectionError => e
-          unless attempt <= @config.max_retries
-            raise AdapterRetryExhaustedError, "Failed after #{@config.max_retries} retries: #{e.message}"
-          end
-
-          delay = @config.retry_base_delay * (2**(attempt - 1))
-          display_retry_status(attempt, @config.max_retries, delay, e)
-          sleep(delay)
-          retry
-        end
+      def adapter_name
+        "Ollama"
       end
 
-      def display_retry_status(attempt, max_retries, delay, error)
-        puts Views::AgentLoop::RetryStatus.build(
-          attempt: attempt,
-          max_retries: max_retries,
-          delay: delay,
-          error: error.message
-        )
+      def api_endpoint
+        # Not used - Ollama uses build_uri override
+        "#{@config.url}/api/chat"
+      end
+
+      def build_uri
+        URI("#{@config.url}/api/chat")
       end
 
       def build_payload(messages, system, tools)
@@ -60,78 +60,110 @@ module RubyCode
       def build_request(uri, payload)
         request = Net::HTTP::Post.new(uri)
         request["Content-Type"] = "application/json"
+        request["Authorization"] = "Bearer #{api_key}"
         request.body = payload.to_json
         request
       end
 
+      def convert_response(_raw_response)
+        # Ollama returns the body directly in the right format
+        # No conversion needed
+        raise NotImplementedError, "Ollama doesn't use convert_response"
+      end
+
       def send_request(uri, request)
         response = perform_http_request(uri, request)
-        handle_response(response)
+        body = handle_response(response)
+
+        # Parse tool calls from content for models that use XML format (like Qwen)
+        parse_tool_calls_from_content(body) if body["message"]
+
+        body
       rescue Net::ReadTimeout, Net::OpenTimeout, Errno::ECONNREFUSED, Errno::ETIMEDOUT, SocketError => e
         handle_network_error(e, uri)
       rescue JSON::ParserError => e
-        raise AdapterError, "Invalid JSON response from server: #{e.message}"
+        raise AdapterError, I18n.t("rubycode.errors.adapter.invalid_json", error: e.message)
       rescue StandardError => e
-        raise AdapterError, "Unexpected error: #{e.message}"
+        raise AdapterError, I18n.t("rubycode.errors.adapter.unexpected_error", error: e.message)
       end
 
-      def perform_http_request(uri, request)
-        Net::HTTP.start(
-          uri.hostname,
-          uri.port,
-          read_timeout: @config.http_read_timeout,
-          open_timeout: @config.http_open_timeout
-        ) { |http| http.request(request) }
+      def build_tools_error_message
+        I18n.t("rubycode.errors.tools_not_supported", model: @config.model)
       end
 
-      def handle_network_error(error, uri)
-        case error
-        when Net::ReadTimeout
-          raise AdapterTimeoutError, "Request timed out after #{@config.http_read_timeout}s: #{error.message}"
-        when Net::OpenTimeout
-          raise AdapterTimeoutError, "Connection timed out after #{@config.http_open_timeout}s: #{error.message}"
-        when Errno::ECONNREFUSED
-          raise AdapterConnectionError, "Connection refused to #{uri}: #{error.message}"
-        when Errno::ETIMEDOUT
-          raise AdapterConnectionError, "Connection timed out to #{uri}: #{error.message}"
-        when SocketError
-          raise AdapterConnectionError, "Cannot resolve host #{uri.hostname}: #{error.message}"
+      # Parse <tool_call> XML tags or plain JSON from message content
+      # Some models (like Qwen) return tool calls as XML or JSON in content instead of structured format
+      def parse_tool_calls_from_content(body)
+        message = body["message"]
+        content = message["content"] || ""
+
+        return if content.empty?
+
+        tool_calls, clean_content = extract_tool_calls_and_content(content)
+
+        # Update message with parsed tool calls and cleaned content
+        return unless tool_calls.any?
+
+        message["tool_calls"] = tool_calls
+        message["content"] = clean_content
+      end
+
+      def extract_tool_calls_and_content(content)
+        # Try XML-wrapped tool calls first
+        xml_result = parse_xml_tool_calls(content)
+        return xml_result if xml_result[0].any?
+
+        # Try plain JSON tool call
+        json_result = parse_json_tool_call(content)
+        return json_result if json_result[0].any?
+
+        [[], content]
+      end
+
+      def parse_xml_tool_calls(content)
+        return [[], content] unless content.include?("<tool_call>")
+
+        tool_calls = []
+        content.scan(%r{<tool_call>(.*?)</tool_call>}m) do |match|
+          tool_call_json = match[0].strip
+          tool_data = parse_tool_json(tool_call_json)
+          tool_calls << convert_to_openai_format(tool_data) if tool_data
         end
+
+        clean_content = tool_calls.any? ? content.gsub(%r{<tool_call>.*?</tool_call>}m, "").strip : content
+        [tool_calls, clean_content]
       end
 
-      def handle_response(response)
-        body = JSON.parse(response.body)
+      def parse_json_tool_call(content)
+        return [[], content] unless content.strip.start_with?("{")
 
-        # Check for HTTP errors
-        case response.code.to_i
-        when 200..299
-          body
-        when 500..599
-          # Server errors are retriable
-          raise AdapterConnectionError, "Server error (#{response.code}): #{response.message}"
-        else
-          # Client errors are not retriable
-          raise AdapterError, "HTTP error (#{response.code}): #{response.message}"
-        end
+        tool_data = parse_tool_json(content)
+        return [[], content] unless tool_data
+
+        [[convert_to_openai_format(tool_data)], ""]
       end
 
-      def debug_request(uri, payload)
-        puts "\n#{"=" * 80}"
-        puts "📤 REQUEST TO LLM"
-        puts "=" * 80
-        puts "URL: #{uri}"
-        puts "Model: #{@config.model}"
-        puts "\nPayload:"
-        puts JSON.pretty_generate(payload)
-        puts "=" * 80
+      def parse_tool_json(json_string)
+        JSON.parse(json_string)
+      rescue JSON::ParserError
+        nil
       end
 
-      def debug_response(body)
-        puts "\n#{"=" * 80}"
-        puts "📥 RESPONSE FROM LLM"
-        puts "=" * 80
-        puts JSON.pretty_generate(body)
-        puts "#{"=" * 80}\n"
+      def convert_to_openai_format(tool_data)
+        {
+          "function" => {
+            "name" => tool_data["name"],
+            "arguments" => tool_data["arguments"]
+          }
+        }
+      end
+
+      def extract_tokens(response_body)
+        # Ollama returns tokens in different format
+        TokenCounter.new(
+          input: response_body["prompt_eval_count"],
+          output: response_body["eval_count"]
+        )
       end
     end
   end

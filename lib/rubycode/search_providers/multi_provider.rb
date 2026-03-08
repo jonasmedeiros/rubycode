@@ -1,0 +1,47 @@
+# frozen_string_literal: true
+
+module RubyCode
+  module SearchProviders
+    # Multi-provider search with automatic fallback
+    class MultiProvider
+      attr_reader :last_used_provider
+
+      def initialize(providers: [])
+        @providers = providers
+        @last_used_provider = nil
+      end
+
+      def search(query, max_results: 5)
+        last_error = nil
+
+        @providers.each do |provider|
+          results = provider.search(query, max_results: max_results)
+          if results && !results.empty?
+            @last_used_provider = provider.class.name.split("::").last
+            return results
+          end
+        rescue StandardError => e
+          last_error = e
+          # Continue to next provider
+        end
+
+        # If all providers failed, raise the last error
+        raise last_error if last_error
+
+        # If no error but no results, return empty array
+        @last_used_provider = nil
+        []
+      end
+
+      # Add a provider to the list
+      def add_provider(provider)
+        @providers << provider
+      end
+
+      # Get list of available providers
+      def provider_names
+        @providers.map { |p| p.class.name.split("::").last }
+      end
+    end
+  end
+end
