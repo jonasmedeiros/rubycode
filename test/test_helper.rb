@@ -48,6 +48,8 @@ module TestHelpers
 end
 
 # Include helpers in all test classes
-class Minitest::Test
-  include TestHelpers
+module Minitest
+  class Test
+    include TestHelpers
+  end
 end

@@ -15,9 +15,12 @@ class TestRubycode < Minitest::Test
   end
 
   def test_client_can_be_instantiated
+    # Provide API key for test
+    ENV["OLLAMA_API_KEY"] = "test-key"
     client = RubyCode::Client.new
     refute_nil client
     refute_nil client.memory
+    ENV.delete("OLLAMA_API_KEY")
   end
 
   def test_tools_are_available

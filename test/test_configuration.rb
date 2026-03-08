@@ -57,17 +57,17 @@ class TestConfigManager < Minitest::Test
     end
 
     # Clean up config file for testing
-    File.delete(RubyCode::ConfigManager::CONFIG_FILE) if File.exist?(RubyCode::ConfigManager::CONFIG_FILE)
+    FileUtils.rm_f(RubyCode::ConfigManager::CONFIG_FILE)
   end
 
   def teardown
     # Clean up test config
-    File.delete(RubyCode::ConfigManager::CONFIG_FILE) if File.exist?(RubyCode::ConfigManager::CONFIG_FILE)
+    FileUtils.rm_f(RubyCode::ConfigManager::CONFIG_FILE)
 
     # Restore backup if it exists
-    if @backup_path && File.exist?(@backup_path)
-      FileUtils.mv(@backup_path, RubyCode::ConfigManager::CONFIG_FILE)
-    end
+    return unless @backup_path && File.exist?(@backup_path)
+
+    FileUtils.mv(@backup_path, RubyCode::ConfigManager::CONFIG_FILE)
   end
 
   def test_save_and_load
